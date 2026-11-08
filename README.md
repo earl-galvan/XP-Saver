@@ -1,4 +1,6 @@
 # XP-Saver
+**This branch is the Minecraft 26.2 version.** The 26.3 version is on `main`.
+
 XP Saver helps you spend fewer levels at the anvil. It works out the cheapest order to combine your enchanted books, recommends the best enchantments for each item, and warns you before an anvil step wastes XP.
 
 It runs on the client only: it works in single player, on LAN worlds and on servers (including vanilla servers), and servers don't need it.
@@ -16,9 +18,9 @@ It runs on the client only: it works in single player, on LAN worlds and on serv
 | 26.2 | [`26.2`](../../tree/26.2) |
 
 ## Requirements
-- Minecraft 26.3
+- Minecraft 26.2
 - Fabric Loader 0.20.1 or newer
-- Fabric API (0.165.2+26.3 or newer)
+- Fabric API (0.161.0+26.2 or newer)
 - Java 25
 
 ## Building

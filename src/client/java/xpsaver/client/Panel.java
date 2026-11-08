@@ -7,7 +7,7 @@ import net.minecraft.network.chat.Component;
 
 /** A plain text box drawn beside a container screen. */
 final class Panel {
-	/** AbstractContainerScreen(menu, inventory, title) uses 176 x 166 (26.3); EnchantmentScreen and AnvilScreen keep it. */
+	/** AbstractContainerScreen(menu, inventory, title) uses 176 x 166 (26.2); EnchantmentScreen and AnvilScreen keep it. */
 	static final int IMAGE_WIDTH = 176;
 	static final int IMAGE_HEIGHT = 166;
 	private static final int LINE = 10;
@@ -15,7 +15,7 @@ final class Panel {
 
 	private Panel() {}
 
-	/** Same formula as AbstractContainerScreen#init (26.3): (width - imageWidth) / 2. */
+	/** Same formula as AbstractContainerScreen#init (26.2): (width - imageWidth) / 2. */
 	static int leftPos(int screenWidth) {
 		return (screenWidth - IMAGE_WIDTH) / 2;
 	}
@@ -26,7 +26,7 @@ final class Panel {
 
 	/**
 	 * Draws to the left of the GUI (the right side is where item-list mods such as JEI sit), shrunk (down to half size)
-	 * if it would not fit, so it never covers the GUI. Text colors need alpha in 26.3 (GuiGraphicsExtractor#text skips alpha 0).
+	 * if it would not fit, so it never covers the GUI. Text colors need alpha in 26.2 (GuiGraphicsExtractor#text skips alpha 0).
 	 */
 	static void draw(GuiGraphicsExtractor g, Font font, List<Component> lines, int screenWidth, int screenHeight) {
 		int w = 0;

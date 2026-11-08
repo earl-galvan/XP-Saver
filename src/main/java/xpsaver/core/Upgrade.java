@@ -6,7 +6,7 @@ import java.util.Map;
 
 /**
  * What a book's enchantments would do to an item that may already be enchanted, by the anvil's own rule
- * (AnvilMenu#createResult, 26.3): a book level equal to the item's goes up by one (Sharpness IV + IV = V), a higher one replaces it,
+ * (AnvilMenu#createResult, 26.2): a book level equal to the item's goes up by one (Sharpness IV + IV = V), a higher one replaces it,
  * a lower one changes nothing, and nothing goes past the max level. The anvil still charges for an enchantment that changes nothing.
  */
 public final class Upgrade {

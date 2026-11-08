@@ -41,7 +41,7 @@ processResources {
 
 tasks.withType(JavaCompile).configureEach {
 	it.options.release = 25
-	it.options.compilerArgs += ['-Xlint:all,-classfile', '-Werror'] // -classfile: 26.3 ships JOML 1.10.9, whose old class files trigger javac's classfile lint
+	it.options.compilerArgs += ['-Xlint:all', '-Werror']
 }
 
 java {
