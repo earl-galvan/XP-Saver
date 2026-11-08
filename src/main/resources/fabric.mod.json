@@ -1,0 +1,20 @@
+{
+	"schemaVersion": 1,
+	"id": "xpsaver",
+	"version": "${version}",
+	"name": "XP Saver",
+	"description": "Enchanting table recommendations, anvil cost checks and the cheapest anvil combine order. Client-side only.",
+	"license": "MIT",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"xpsaver.client.XpSaverClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.20.1",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
