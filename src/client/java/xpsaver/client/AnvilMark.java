@@ -16,7 +16,7 @@ import xpsaver.core.EnchantInfo;
 
 /** F2: check or cross next to the anvil output slot, with the reason as a tooltip. */
 final class AnvilMark {
-	/** AnvilMenu input slot definitions (26.3): result slot at (134, 47), 16 px wide. */
+	/** AnvilMenu input slot definitions (26.2): result slot at (134, 47), 16 px wide. */
 	private static final int MARK_X = 134 + 16 + 4;
 	private static final int MARK_Y = 47 + 4;
 

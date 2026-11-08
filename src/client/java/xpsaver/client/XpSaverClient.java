@@ -11,7 +11,7 @@ import net.minecraft.client.gui.screens.inventory.EnchantmentScreen;
 import net.minecraft.resources.Identifier;
 
 /**
- * Client entrypoint. Hooks used (all from Fabric API 0.165.2+26.3, no mixins):
+ * Client entrypoint. Hooks used (all from Fabric API 0.161.0+26.2, no mixins):
  * ScreenEvents.AFTER_INIT / afterForeground (fabric-screen-api-v1), KeyMappingHelper.registerKeyMapping (fabric-key-mapping-api-v1),
  * ClientTickEvents.END_CLIENT_TICK (fabric-lifecycle-events-v1).
  */
@@ -21,11 +21,11 @@ public final class XpSaverClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		KeyMapping plannerKey = KeyMappingHelper.registerKeyMapping(
-				new KeyMapping("key.xpsaver.planner", InputConstants.Type.KEYBOARD, InputConstants.KEY_K, CATEGORY));
+				new KeyMapping("key.xpsaver.planner", InputConstants.Type.KEYSYM, InputConstants.KEY_K, CATEGORY));
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			while (plannerKey.consumeClick()) {
 				if (mc.player != null && mc.level != null) {
-					mc.gui.setScreen(new PlannerScreen(mc)); // 26.3 opens screens through Gui#setScreen
+					mc.gui.setScreen(new PlannerScreen(mc)); // 26.2 opens screens through Gui#setScreen
 				}
 			}
 		});

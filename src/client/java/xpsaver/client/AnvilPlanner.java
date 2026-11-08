@@ -41,11 +41,11 @@ import xpsaver.core.Upgrade;
  * "Cheapest order": tick enchanted books, see the cheapest order (every step within Planner.MAX_STEP_COST), and press
  * "Next step" to move that step's two inputs into the anvil. The player still takes each result, which is when XP is charged.
  * Long content scrolls (mouse wheel) at normal text size instead of shrinking.
- * Hooks (Fabric API 0.165.2+26.3): Screens.getWidgets, ScreenEvents.afterForeground, ScreenMouseEvents.allowMouseClick /
- * allowMouseScroll. Item moves use MultiPlayerGameMode#handleContainerInput (26.3), the same packets as clicking by hand.
+ * Hooks (Fabric API 0.161.0+26.2): Screens.getWidgets, ScreenEvents.afterForeground, ScreenMouseEvents.allowMouseClick /
+ * allowMouseScroll. Item moves use MultiPlayerGameMode#handleContainerInput (26.2), the same packets as clicking by hand.
  */
 final class AnvilPlanner {
-	/** AnvilMenu (26.3): slots 0 and 1 are inputs, 2 is the result, 3..38 are the player's inventory and hotbar. */
+	/** AnvilMenu (26.2): slots 0 and 1 are inputs, 2 is the result, 3..38 are the player's inventory and hotbar. */
 	private static final int FIRST_INVENTORY_SLOT = 3;
 	private static final int LINE = 10;
 	private static final int BUTTON_H = 16;

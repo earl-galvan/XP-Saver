@@ -1,6 +1,6 @@
 # XP Saver: manual test checklist
 
-Setup (26.3 renders with OpenGL or Vulkan; any normal graphics driver works): Minecraft 26.3 with Fabric Loader 0.20.1+, Fabric API 0.165.2+26.3 and `xp-saver-1.0.0+26.3.jar` in `mods/`.
+Setup: Minecraft 26.2 with Fabric Loader 0.20.1+, Fabric API 0.161.0+26.2 and `xp-saver-1.0.0.jar` in `mods/`.
 Create a **Survival** world with **Allow Commands: ON** and set `/difficulty peaceful`, then run:
 
 ```
@@ -37,7 +37,7 @@ plus books Sharpness IV, Looting III, Mending, Smite V, Unbreaking II, Sharpness
 Install XP Saver on your own game only. Servers and LAN hosts don't need it, and players without it can join the same world.
 - [ ] Single player: every section below works.
 - [ ] Open to LAN: the host and a guest who both have the mod each see their own panels, and a guest without the mod can still join.
-- [ ] Dedicated server with no mods (plain vanilla 26.3): join with the mod and repeat the anvil dropdown run below.
+- [ ] Dedicated server with no mods (plain vanilla 26.2): join with the mod and repeat the anvil dropdown run below.
       The server takes exactly the planned levels (check with `/xp query @s levels`) and the sword gets all seven enchantments.
 - [ ] Put the jar in a Fabric **server**'s `mods/` folder by mistake: the server starts and XP Saver is not in its
       "Loading N mods" list (Fabric skips client-only mods there).
@@ -57,7 +57,7 @@ Install XP Saver on your own game only. Servers and LAN hosts don't need it, and
 - [ ] Sharpness V book (left) + fresh sword (right): red ✘, "Invalid this way round. Swap the inputs: 5 levels".
 - [ ] Mending book (left) + Looting book (right): red ✘, "Cheaper order exists: swap the inputs (2 instead of 6 levels)". Swap them: green ✔ at 2 levels.
 - [ ] Too Expensive: `/give @s diamond_sword[repair_cost=31]`, then add a book with `repair_cost=7`, e.g. `/give @s enchanted_book[stored_enchantments={"minecraft:sharpness":5},repair_cost=7]`. Expect a red ✘ "Too Expensive! 43 levels (the anvil allows at most 39)", matching vanilla's "Too Expensive!".
-- [ ] Same sword with a `repair_cost=3` Sharpness V book costs 39: green ✔ (the 26.3 cutoff is 40, not 39).
+- [ ] Same sword with a `repair_cost=3` Sharpness V book costs 39: green ✔ (the 26.2 cutoff is 40, not 39).
 - [ ] Damaged sword + diamond (material repair): green ✔ at the game's cost.
 
 ## Anvil dropdown: Recommended enchantments
