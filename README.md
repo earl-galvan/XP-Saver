@@ -9,6 +9,12 @@ It runs on the client only: it works in single player, on LAN worlds and on serv
 - **Anvil check**: a ✔ or ✘ next to the output slot, with a tooltip explaining why (invalid, too expensive, or cheaper if the inputs are swapped).
 - **Planner key (K)**: the cheapest order for the held item using your inventory's books, chosen from the Minecraft Wiki's Best enchantments guide.
 
+## Versions
+| Minecraft | Branch |
+|---|---|
+| 26.3 | `main` |
+| 26.2 | [`26.2`](../../tree/26.2) |
+
 ## Requirements
 - Minecraft 26.3
 - Fabric Loader 0.20.1 or newer
