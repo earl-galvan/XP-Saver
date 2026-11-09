@@ -1,6 +1,7 @@
 package xpsaver.client;
 
 import com.mojang.blaze3d.platform.cursor.CursorTypes;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.client.Minecraft;
@@ -41,8 +42,22 @@ final class Panel {
 	private static final int DARK_TRACK = 0x303030;
 	private static final int DARK_THUMB = 0xA0A0A0;
 
-	/** One line of the list; {@code tag} is for the caller (the anvil uses it for book rows, which are clickable), -1 for none. */
-	record Row(FormattedCharSequence text, int color, int tag) {}
+	/** The "!" info icon at the right end of an enchantment row: a 7 x 9 rounded box, plus 2 px between it and the text. */
+	private static final int ICON_W = 7;
+	private static final int ICON_H = 9;
+	private static final int ICON_SPACE = ICON_W + 2;
+	/** Widest a tooltip line gets before it wraps. */
+	private static final int TOOLTIP_WIDTH = 200;
+
+	/**
+	 * One line of the list; {@code tag} is for the caller (the anvil uses it for book rows, which are clickable), -1 for none.
+	 * {@code info}, when not empty, is the tooltip shown while the mouse is over the row's "!" icon.
+	 */
+	record Row(FormattedCharSequence text, int color, int tag, List<Component> info) {
+		Row(FormattedCharSequence text, int color, int tag) {
+			this(text, color, tag, List.of());
+		}
+	}
 
 	private int x; // top-left of the frame, screen pixels
 	private int y;
@@ -143,6 +158,11 @@ final class Panel {
 		return panelWidth - PAD - SCROLLBAR - 6;
 	}
 
+	/** Width a line takes in the panel: its text, plus the "!" icon when it has one. */
+	static int lineWidth(Font font, Component line, boolean info) {
+		return font.width(line) + (info ? ICON_SPACE : 0);
+	}
+
 	/** Panel width that fits text lines up to {@code textWidth} wide. */
 	static int widthFor(int textWidth) {
 		return textWidth + PAD + SCROLLBAR + 6;
@@ -227,6 +247,11 @@ final class Panel {
 		int overflow = contentHeight() - height;
 		scroll = Math.max(0, Math.min(scroll, overflow));
 		int hovered = tagAt(mouseX, mouseY);
+		// Mouse in panel pixels, for the "!" icons.
+		double px = (mouseX - x) / scale;
+		double py = (mouseY - y) / scale;
+		int iconX = PAD + textWidth(width) - ICON_W;
+		List<Component> tip = List.of();
 		g.pose().pushMatrix();
 		g.pose().translate(x, y);
 		g.pose().scale(scale, scale);
@@ -243,6 +268,13 @@ final class Panel {
 					g.fill(PAD - 2, rowY - 1, PAD + textWidth(width) + 1, rowY + line - 1, dark() ? HOVER_DARK : HOVER_INVENTORY);
 				}
 				g.text(font, rows.get(i).text(), PAD, rowY, rows.get(i).color(), colors().textShadow);
+				if (!rows.get(i).info().isEmpty()) {
+					boolean over = px >= iconX && px < iconX + ICON_W && py >= rowY - 1 && py < rowY - 1 + ICON_H && py >= 3 && py < height - 3;
+					icon(g, iconX, rowY - 1, over);
+					if (over) {
+						tip = rows.get(i).info();
+					}
+				}
 			}
 		}
 		g.disableScissor();
@@ -263,6 +295,26 @@ final class Panel {
 		if (hovered >= 0) {
 			g.requestCursor(CursorTypes.POINTING_HAND);
 		}
+		if (!tip.isEmpty()) {
+			List<FormattedCharSequence> lines = new ArrayList<>();
+			tip.forEach(l -> lines.addAll(l.getString().isEmpty() ? List.of(FormattedCharSequence.EMPTY) : font.split(l, TOOLTIP_WIDTH)));
+			g.setTooltipForNextFrame(font, lines, mouseX, mouseY);
+		}
+	}
+
+	/** The "!" info icon: a rounded box with an exclamation mark, in the text color; filled with the hover color under the mouse. */
+	private static void icon(GuiGraphicsExtractor g, int x, int y, boolean over) {
+		int ink = text();
+		if (over) {
+			g.fill(x + 1, y + 1, x + ICON_W - 1, y + ICON_H - 1, dark() ? HOVER_DARK : HOVER_INVENTORY);
+		}
+		g.fill(x + 1, y, x + ICON_W - 1, y + 1, ink); // top
+		g.fill(x + 1, y + ICON_H - 1, x + ICON_W - 1, y + ICON_H, ink); // bottom
+		g.fill(x, y + 1, x + 1, y + ICON_H - 1, ink); // left
+		g.fill(x + ICON_W - 1, y + 1, x + ICON_W, y + ICON_H - 1, ink); // right
+		int mid = x + ICON_W / 2;
+		g.fill(mid, y + 2, mid + 1, y + 5, ink); // bar
+		g.fill(mid, y + 6, mid + 1, y + 7, ink); // dot
 	}
 
 	/** The container window frame, pixel for pixel as inventory.png draws its edges and corners. */
@@ -314,6 +366,14 @@ final class Panel {
 
 	/** Wraps a line to {@code width}; continuation lines get a hanging indent so a wrapped entry still reads as one. */
 	static void wrap(List<Row> out, Font font, Component line, int width, int color, int tag) {
+		wrap(out, font, line, width, color, tag, List.of());
+	}
+
+	/** As above; a non-empty {@code info} puts a "!" icon on the entry's first row, showing {@code info} as a tooltip on hover. */
+	static void wrap(List<Row> out, Font font, Component line, int width, int color, int tag, List<Component> info) {
+		if (!info.isEmpty()) {
+			width -= ICON_SPACE; // the text never runs under the icon
+		}
 		Component light = recolor(line);
 		List<FormattedCharSequence> parts = font.split(light, width);
 		if (parts.size() > 1) { // only lines that really wrap give up room for the indent
@@ -324,7 +384,7 @@ final class Panel {
 		}
 		FormattedCharSequence indent = FormattedCharSequence.forward("   ", Style.EMPTY);
 		for (int i = 0; i < parts.size(); i++) {
-			out.add(new Row(i == 0 ? parts.get(i) : FormattedCharSequence.composite(indent, parts.get(i)), color, tag));
+			out.add(new Row(i == 0 ? parts.get(i) : FormattedCharSequence.composite(indent, parts.get(i)), color, tag, i == 0 ? info : List.of()));
 		}
 	}
 
