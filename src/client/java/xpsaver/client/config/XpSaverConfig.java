@@ -24,6 +24,9 @@ public final class XpSaverConfig {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static XpSaverConfig instance = new XpSaverConfig();
 
+	/** Dark: the original see-through dark panel with light text (default). Inventory: the light vanilla container window. */
+	public enum Style { DARK, INVENTORY }
+
 	public enum Anchor { LEFT, RIGHT }
 
 	public enum ButtonLayout { AUTO, STACKED, ROW }
@@ -32,7 +35,7 @@ public final class XpSaverConfig {
 
 	public enum TextSize { AUTO, NEVER_SHRINK }
 
-	public enum Frame { INVENTORY, FLAT }
+	public enum Frame { BEVELED, FLAT }
 
 	// Ranges, shared by validate() and the config screen's sliders.
 	public static final int OFFSET_MIN = -100;
@@ -53,6 +56,85 @@ public final class XpSaverConfig {
 	public static final int OPACITY_MAX = 100;
 	public static final int STEP_COST_MIN = 1;
 	public static final int STEP_COST_MAX = 39; // the anvil refuses 40 and up ("Too Expensive!")
+
+	/**
+	 * One style's colors (RRGGBB), opacity and text shadow. Defaults are at least 4.5:1 against the panel (WCAG AA for normal
+	 * text), even at the default opacity with the brightest or darkest world showing through.
+	 */
+	public static final class Palette {
+		public String faceColor;
+		public String headingColor;
+		public String textColor;
+		public String hintColor;
+		public String dimmedColor;
+		public String greenColor;
+		public String redColor;
+		public String amberColor;
+		public String tealColor;
+		public Integer opacity; // boxed: a missing value in a hand-edited file reads as null and gets the default
+		public Boolean textShadow;
+
+		// Parsed colors (0xRRGGBB), kept in step with the strings by validate(); not saved.
+		public transient int face;
+		public transient int heading;
+		public transient int text;
+		public transient int hint;
+		public transient int dimmed;
+		public transient int green;
+		public transient int red;
+		public transient int amber;
+		public transient int teal;
+
+		private static Palette of(String face, String heading, String text, String hint, String dimmed, String green, String red,
+				String amber, String teal, int opacity, boolean textShadow) {
+			Palette p = new Palette();
+			p.faceColor = face;
+			p.headingColor = heading;
+			p.textColor = text;
+			p.hintColor = hint;
+			p.dimmedColor = dimmed;
+			p.greenColor = green;
+			p.redColor = red;
+			p.amberColor = amber;
+			p.tealColor = teal;
+			p.opacity = opacity;
+			p.textShadow = textShadow;
+			return p;
+		}
+
+		/** The original dark panel and chat colors; dimmed and red are lighter than the originals so they pass 4.5:1. */
+		public static Palette dark() {
+			return of("101010", "FFAA00", "FFFFFF", "AAAAAA", "959595", "55FF55", "FF6B6B", "FFFF55", "55FFFF", 90, true);
+		}
+
+		/** Vanilla container colors: the inventory's light gray face and its dark label text. */
+		public static Palette inventory() {
+			return of("C6C6C6", "404040", "404040", "4C4C4C", "525252", "125A12", "9A1A1A", "6B4000", "0A5562", 100, false);
+		}
+
+		private void validate(Palette d) {
+			faceColor = hexOr(faceColor, d.faceColor);
+			headingColor = hexOr(headingColor, d.headingColor);
+			textColor = hexOr(textColor, d.textColor);
+			hintColor = hexOr(hintColor, d.hintColor);
+			dimmedColor = hexOr(dimmedColor, d.dimmedColor);
+			greenColor = hexOr(greenColor, d.greenColor);
+			redColor = hexOr(redColor, d.redColor);
+			amberColor = hexOr(amberColor, d.amberColor);
+			tealColor = hexOr(tealColor, d.tealColor);
+			opacity = opacity == null ? d.opacity : clamp(opacity, OPACITY_MIN, OPACITY_MAX);
+			textShadow = textShadow == null ? d.textShadow : textShadow;
+			face = Integer.parseInt(faceColor, 16);
+			heading = Integer.parseInt(headingColor, 16);
+			text = Integer.parseInt(textColor, 16);
+			hint = Integer.parseInt(hintColor, 16);
+			dimmed = Integer.parseInt(dimmedColor, 16);
+			green = Integer.parseInt(greenColor, 16);
+			red = Integer.parseInt(redColor, 16);
+			amber = Integer.parseInt(amberColor, 16);
+			teal = Integer.parseInt(tealColor, 16);
+		}
+	}
 
 	// Features
 	public boolean tablePanel = true;
@@ -76,33 +158,16 @@ public final class XpSaverConfig {
 	public TextSize textSize = TextSize.AUTO;
 	public int shrinkWidth = 100;
 	public int lineSpacing = 10;
-	public boolean textShadow = false;
 	public int scrollLines = 2;
 
-	// Look and colors. Defaults are at least 4.5:1 against the default face (WCAG AA for normal text).
-	public Frame frame = Frame.INVENTORY;
-	public int opacity = 100;
-	public String faceColor = "C6C6C6";
-	public String textColor = "404040";
-	public String dimmedColor = "525252";
-	public String hintColor = "4C4C4C";
-	public String greenColor = "125A12";
-	public String redColor = "9A1A1A";
-	public String amberColor = "6B4000";
-	public String tealColor = "0A5562";
+	// Look and colors
+	public Style style = Style.DARK;
+	public Frame frame = Frame.BEVELED; // Inventory style only
+	public Palette dark = Palette.dark();
+	public Palette inventory = Palette.inventory();
 
 	// Planner
 	public int maxStepCost = Planner.MAX_STEP_COST;
-
-	// Parsed colors (0xRRGGBB), kept in step with the strings by validate(); not saved.
-	public transient int face;
-	public transient int text;
-	public transient int dimmed;
-	public transient int hint;
-	public transient int green;
-	public transient int red;
-	public transient int amber;
-	public transient int teal;
 
 	public XpSaverConfig() {
 		validate();
@@ -110,6 +175,11 @@ public final class XpSaverConfig {
 
 	public static XpSaverConfig get() {
 		return instance;
+	}
+
+	/** Colors, opacity and shadow of the selected style. */
+	public Palette palette() {
+		return style == Style.INVENTORY ? inventory : dark;
 	}
 
 	private static Path path() {
@@ -154,11 +224,12 @@ public final class XpSaverConfig {
 
 	/** Puts every value back inside its range, replaces missing or invalid ones with defaults, and applies the planner budget. */
 	public void validate() {
-		anchor = anchor == null ? Anchor.LEFT : anchor; // null: missing or unknown name in a hand-edited file
+		style = style == null ? Style.DARK : style; // null: missing or unknown name in a hand-edited file
+		anchor = anchor == null ? Anchor.LEFT : anchor;
 		buttonLayout = buttonLayout == null ? ButtonLayout.AUTO : buttonLayout;
 		panelHeight = panelHeight == null ? PanelHeight.MATCH_WINDOW : panelHeight;
 		textSize = textSize == null ? TextSize.AUTO : textSize;
-		frame = frame == null ? Frame.INVENTORY : frame;
+		frame = frame == null ? Frame.BEVELED : frame;
 		offsetX = clamp(offsetX, OFFSET_MIN, OFFSET_MAX);
 		offsetY = clamp(offsetY, OFFSET_MIN, OFFSET_MAX);
 		markOffsetX = clamp(markOffsetX, MARK_OFFSET_MIN, MARK_OFFSET_MAX);
@@ -168,24 +239,11 @@ public final class XpSaverConfig {
 		shrinkWidth = clamp(shrinkWidth, SHRINK_WIDTH_MIN, SHRINK_WIDTH_MAX);
 		lineSpacing = clamp(lineSpacing, LINE_MIN, LINE_MAX);
 		scrollLines = clamp(scrollLines, SCROLL_MIN, SCROLL_MAX);
-		opacity = clamp(opacity, OPACITY_MIN, OPACITY_MAX);
 		maxStepCost = clamp(maxStepCost, STEP_COST_MIN, STEP_COST_MAX);
-		faceColor = hexOr(faceColor, "C6C6C6");
-		textColor = hexOr(textColor, "404040");
-		dimmedColor = hexOr(dimmedColor, "525252");
-		hintColor = hexOr(hintColor, "4C4C4C");
-		greenColor = hexOr(greenColor, "125A12");
-		redColor = hexOr(redColor, "9A1A1A");
-		amberColor = hexOr(amberColor, "6B4000");
-		tealColor = hexOr(tealColor, "0A5562");
-		face = Integer.parseInt(faceColor, 16);
-		text = Integer.parseInt(textColor, 16);
-		dimmed = Integer.parseInt(dimmedColor, 16);
-		hint = Integer.parseInt(hintColor, 16);
-		green = Integer.parseInt(greenColor, 16);
-		red = Integer.parseInt(redColor, 16);
-		amber = Integer.parseInt(amberColor, 16);
-		teal = Integer.parseInt(tealColor, 16);
+		dark = dark == null ? Palette.dark() : dark;
+		inventory = inventory == null ? Palette.inventory() : inventory;
+		dark.validate(Palette.dark());
+		inventory.validate(Palette.inventory());
 		Planner.maxStepCost = maxStepCost;
 	}
 
@@ -207,6 +265,23 @@ public final class XpSaverConfig {
 		double la = luminance(a);
 		double lb = luminance(b);
 		return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+	}
+
+	/**
+	 * Contrast of {@code text} on a {@code face} panel that is {@code opacity}% solid, in the worst case: the darkest or the
+	 * brightest world showing through. At 100% it is the plain contrast.
+	 */
+	public static double worstContrast(int text, int face, int opacity) {
+		return Math.min(contrast(text, blend(face, 0x000000, opacity)), contrast(text, blend(face, 0xFFFFFF, opacity)));
+	}
+
+	private static int blend(int top, int under, int opacity) {
+		int out = 0;
+		for (int shift = 0; shift <= 16; shift += 8) {
+			int c = Math.round(((top >> shift) & 0xFF) * opacity / 100f + ((under >> shift) & 0xFF) * (100 - opacity) / 100f);
+			out |= c << shift;
+		}
+		return out;
 	}
 
 	private static double luminance(int rgb) {

@@ -65,8 +65,9 @@ final class AnvilMark {
 		XpSaverConfig cfg = XpSaverConfig.get();
 		int x = Panel.leftPos(screen.width) + MARK_X + cfg.markOffsetX;
 		int y = Panel.topPos(screen.height) + MARK_Y + cfg.markOffsetY;
-		// Dark and without a shadow by default, like the window's own labels.
-		g.text(mc.font, ok ? "✔" : "✘", x, y, ok ? Panel.green() : Panel.red(), cfg.textShadow);
+		// The mark sits on the anvil's own light window whatever the panel style, so it uses the Inventory style's colors and shadow.
+		XpSaverConfig.Palette light = cfg.inventory;
+		g.text(mc.font, ok ? "✔" : "✘", x, y, Panel.argb(ok ? light.green : light.red), light.textShadow);
 		if (mouseX >= x - 1 && mouseX < x + 9 && mouseY >= y - 1 && mouseY < y + 9) {
 			g.setComponentTooltipForNextFrame(mc.font, List.of(reason.copy().withStyle(ok ? ChatFormatting.GREEN : ChatFormatting.RED)), mouseX, mouseY);
 		}
