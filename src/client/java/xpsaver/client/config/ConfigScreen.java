@@ -1,11 +1,14 @@
 package xpsaver.client.config;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.serialization.Codec;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import java.util.function.Supplier;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.OptionInstance;
 import net.minecraft.client.Options;
@@ -16,11 +19,15 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.layouts.LinearLayout;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.options.OptionsSubScreen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import xpsaver.client.XpSaverClient;
 
 /**
  * XP Saver settings, built from the same widgets as the game's own option screens (OptionsSubScreen, OptionInstance sliders and
@@ -34,6 +41,9 @@ public final class ConfigScreen extends OptionsSubScreen {
 	private static final double MIN_CONTRAST = 4.5;
 	private final double initialScroll;
 	private boolean rebuild;
+	private Button keyButton;
+	private Button keyReset;
+	private boolean listening; // the planner key button was clicked: the next key or mouse button becomes the planner key
 
 	public ConfigScreen(Screen parent) {
 		this(parent, 0);
@@ -100,7 +110,7 @@ public final class ConfigScreen extends OptionsSubScreen {
 						XpSaverConfig.MARK_OFFSET_MIN, XpSaverConfig.MARK_OFFSET_MAX, 0, " px", c.markOffsetX, v -> c.markOffsetX = v),
 				slider("mark_offset_y", "Moves the anvil ✔/✘ mark up or down from its place beside the output slot.",
 						XpSaverConfig.MARK_OFFSET_MIN, XpSaverConfig.MARK_OFFSET_MAX, 0, " px", c.markOffsetY, v -> c.markOffsetY = v),
-				slider("planner_width", "Widest the K planner window gets, so its lines stay easy to read on large screens.",
+				slider("planner_width", "Widest the planner window gets, so its lines stay easy to read on large screens.",
 						XpSaverConfig.PLANNER_WIDTH_MIN, XpSaverConfig.PLANNER_WIDTH_MAX, 360, " px", c.plannerMaxWidth,
 						v -> c.plannerMaxWidth = v));
 
@@ -154,6 +164,82 @@ public final class ConfigScreen extends OptionsSubScreen {
 		list.addBig(slider("max_step_cost", "Most levels any single anvil step in a plan may cost. The anvil refuses 40 or "
 				+ "more (\"Too Expensive!\"); lower values keep each step affordable but may leave enchantments out.",
 				XpSaverConfig.STEP_COST_MIN, XpSaverConfig.STEP_COST_MAX, 29, " levels", c.maxStepCost, v -> c.maxStepCost = v));
+		plannerKeyRow();
+	}
+
+	/**
+	 * The planner's key binding, changed the way Options → Controls → Key Binds does it (KeyBindsScreen, 26.2): click the button,
+	 * then press a key or mouse button; Esc leaves it unbound. It is the same KeyMapping the Controls screen shows, so it is saved
+	 * in the game's options.txt (OptionsSubScreen#removed saves it) rather than in xpsaver.json.
+	 */
+	private void plannerKeyRow() {
+		KeyMapping key = XpSaverClient.plannerKey();
+		keyButton = Button.builder(Component.empty(), b -> {
+			listening = true;
+			refreshKey();
+		}).width(150).build();
+		keyReset = Button.builder(Component.translatable("controls.reset"), b -> setPlannerKey(key.getDefaultKey())).width(150)
+				.tooltip(Tooltip.create(Component.literal("Puts the planner key back to " + key.getDefaultKey().getDisplayName().getString() + ".")))
+				.build();
+		refreshKey();
+		list.addSmall(keyButton, keyReset);
+	}
+
+	private void setPlannerKey(InputConstants.Key value) {
+		XpSaverClient.plannerKey().setKey(value);
+		KeyMapping.resetMapping(); // rebuilds the game's key -> binding lookup, as KeyBindsList#resetMappingAndUpdateButtons does
+		listening = false;
+		refreshKey();
+	}
+
+	/** Button text and tooltip as the Controls screen shows them: "> K <" while waiting, "[ K ]" in yellow when another binding uses it. */
+	private void refreshKey() {
+		if (keyButton == null) {
+			return;
+		}
+		KeyMapping key = XpSaverClient.plannerKey();
+		MutableComponent clashes = Component.empty();
+		boolean clash = false;
+		if (!key.isUnbound()) {
+			for (KeyMapping other : minecraft.options.keyMappings) {
+				if (other != key && key.same(other)) {
+					clashes.append(clash ? ", " : "").append(Component.translatable(other.getName()));
+					clash = true;
+				}
+			}
+		}
+		Component value = key.getTranslatedKeyMessage();
+		if (listening) {
+			value = Component.literal("> ").append(value.copy().withStyle(ChatFormatting.WHITE, ChatFormatting.UNDERLINE)).append(" <")
+					.withStyle(ChatFormatting.YELLOW);
+		} else if (clash) {
+			value = Component.literal("[ ").append(value.copy().withStyle(ChatFormatting.WHITE)).append(" ]").withStyle(ChatFormatting.YELLOW);
+		}
+		keyButton.setMessage(Component.translatable(KEY + "planner_key").append(": ").append(value));
+		String tip = "Opens the planner: the cheapest order for the item in your hand, using the books in your inventory. Click, then "
+				+ "press a key or mouse button. Esc leaves it unbound. The same setting as Options \u2192 Controls \u2192 Key Binds \u2192 "
+				+ "XP Saver.\n\nDefault: " + key.getDefaultKey().getDisplayName().getString() + ". Applies right away.";
+		keyButton.setTooltip(Tooltip.create(clash ? Component.literal(tip + "\n\n").append(Component.translatable(
+				"controls.keybinds.duplicateKeybinds", clashes).withStyle(ChatFormatting.YELLOW)) : Component.literal(tip)));
+		keyReset.active = !key.isDefault();
+	}
+
+	@Override
+	public boolean keyPressed(KeyEvent event) {
+		if (!listening) {
+			return super.keyPressed(event);
+		}
+		setPlannerKey(event.isEscape() ? InputConstants.UNKNOWN : InputConstants.getKey(event));
+		return true;
+	}
+
+	@Override
+	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		if (!listening) {
+			return super.mouseClicked(event, doubleClick);
+		}
+		setPlannerKey(InputConstants.Type.MOUSE.getOrCreate(event.button()));
+		return true;
 	}
 
 	@Override
@@ -168,6 +254,8 @@ public final class ConfigScreen extends OptionsSubScreen {
 		minecraft.gui.setScreen(new ConfirmScreen(yes -> {
 			if (yes) {
 				XpSaverConfig.resetToDefaults();
+				XpSaverClient.plannerKey().setKey(XpSaverClient.plannerKey().getDefaultKey()); // the planner key is an XP Saver setting too
+				KeyMapping.resetMapping();
 			}
 			minecraft.gui.setScreen(new ConfigScreen(lastScreen)); // rebuilt, so every control shows the current values
 		}, Component.translatable(KEY + "reset.title"), Component.translatable(KEY + "reset.message")));
