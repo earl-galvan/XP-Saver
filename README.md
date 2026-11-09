@@ -8,6 +8,7 @@ It runs on the client only: it works in single player, on LAN worlds and on serv
 ## Features
 - **Cheapest order** (anvil dropdown): tick the books to use and get the order with the lowest total cost, every step at or under 29 levels. **Next step** puts each step's items into the anvil for you.
 - **Recommended enchantments** (anvil dropdown and next to the enchanting table): the best enchantments for the item, marked by what it already has.
+- **Enchantment info (!)**: every enchantment in these lists has a small "!" icon. Hover it to see what the enchantment does, its max level, what it can't be combined with, and whether the enchanting table ever offers it.
 - **Anvil check**: a ✔ or ✘ next to the output slot, with a tooltip explaining why (invalid, too expensive, or cheaper if the inputs are swapped).
 - **Two panel styles**: Dark (default), a see-through dark panel with light text, or Inventory, drawn like a Minecraft inventory window. Both fit any window size or GUI scale. On narrow screens the anvil buttons move to a row above the anvil and the panel text is drawn smaller.
 - **Settings screen**: open it from Mod Menu (Mods → XP Saver → config button) to pick the panel style, move the panels, change their size, line spacing and colors, turn features off, or set the most levels one anvil step may cost. Changes apply right away and are saved to `config/xpsaver.json`.

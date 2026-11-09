@@ -2,6 +2,7 @@ package xpsaver.client;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.ChatFormatting;
@@ -48,18 +49,19 @@ final class EnchantPanel {
 			return;
 		}
 		List<Component> lines = new ArrayList<>();
+		Map<Component, List<String>> ids = new IdentityHashMap<>();
 		lines.add(Component.literal("Recommended").withStyle(ChatFormatting.GOLD));
 		Registry<Enchantment> registry = Enchants.registry(mc);
-		Map<String, Recommender.Group> groupOf = addRecommendations(item, registry, lines);
+		Map<String, Recommender.Group> groupOf = addRecommendations(item, registry, lines, ids);
 		if (item.is(Items.BOOK)) {
-			show(screen, g, panel, lines, mouseX, mouseY);
+			show(screen, g, panel, lines, ids, registry, mouseX, mouseY);
 			return;
 		}
 		if (groupOf.isEmpty()) {
 			return;
 		}
 		if (!XpSaverConfig.get().tableOffers) {
-			show(screen, g, panel, lines, mouseX, mouseY);
+			show(screen, g, panel, lines, ids, registry, mouseX, mouseY);
 			return;
 		}
 
@@ -83,23 +85,26 @@ final class EnchantPanel {
 				line.append(Component.literal(" (choice)").withStyle(ChatFormatting.AQUA));
 			}
 			lines.add(line);
+			ids.put(line, List.of(Enchants.id(clue.get())));
 		}
-		show(screen, g, panel, lines, mouseX, mouseY);
+		show(screen, g, panel, lines, ids, registry, mouseX, mouseY);
 	}
 
-	/** Beside the table (left by default), level with its window; lines wrap to the room there. */
-	private static void show(EnchantmentScreen screen, GuiGraphicsExtractor g, Panel panel, List<Component> lines, int mouseX, int mouseY) {
+	/** Beside the table (left by default), level with its window; lines wrap to the room there. Lines in {@code ids} get a "!" icon. */
+	private static void show(EnchantmentScreen screen, GuiGraphicsExtractor g, Panel panel, List<Component> lines,
+			Map<Component, List<String>> ids, Registry<Enchantment> registry, int mouseX, int mouseY) {
 		Font font = Minecraft.getInstance().font;
 		int widest = 0;
 		for (Component line : lines) {
-			widest = Math.max(widest, font.width(line));
+			widest = Math.max(widest, Panel.lineWidth(font, line, ids.containsKey(line)));
 		}
 		int top = Panel.topPos(screen.height);
 		if (!panel.placeBeside(screen.width, screen.height, top, Panel.bottom(screen.height), Panel.widthFor(widest))) {
 			return;
 		}
 		List<Panel.Row> rows = new ArrayList<>();
-		lines.forEach(line -> Panel.wrap(rows, font, line, Panel.textWidth(panel.width()), Panel.text(), -1));
+		lines.forEach(line -> Panel.wrap(rows, font, line, Panel.textWidth(panel.width()), Panel.text(), -1,
+				EnchantTips.of(registry, ids.getOrDefault(line, List.of()))));
 		panel.setRows(rows);
 		panel.draw(g, font, mouseX, mouseY);
 	}
@@ -120,10 +125,12 @@ final class EnchantPanel {
 	}
 
 	/**
-	 * Appends the recommendation lines for {@code item} (shared by this panel and the anvil's "Recommended" dropdown).
+	 * Appends the recommendation lines for {@code item} (shared by this panel and the anvil's "Recommended" dropdown), and puts
+	 * each line that names enchantments in {@code ids} (keyed by the line object itself) with their ids, for the "!" tooltips.
 	 * @return enchantment id -> its conflict group, empty if the item takes no enchantments
 	 */
-	static Map<String, Recommender.Group> addRecommendations(ItemStack item, Registry<Enchantment> registry, List<Component> lines) {
+	static Map<String, Recommender.Group> addRecommendations(ItemStack item, Registry<Enchantment> registry, List<Component> lines,
+			Map<Component, List<String>> ids) {
 		Map<String, Recommender.Group> groupOf = new HashMap<>();
 		if (item.is(Items.BOOK) || item.is(Items.ENCHANTED_BOOK)) {
 			lines.add(Component.literal("A book accepts any enchantment.").withStyle(ChatFormatting.GRAY));
@@ -142,7 +149,9 @@ final class EnchantPanel {
 		for (Recommender.Group group : Recommender.recommend(infos)) {
 			group.options().forEach(e -> groupOf.put(e.id(), group));
 			if (!group.choice()) {
-				lines.add(fragment(group.options().get(0), true, current, all, registry, holders));
+				Component line = fragment(group.options().get(0), true, current, all, registry, holders);
+				lines.add(line);
+				ids.put(line, List.of(group.options().get(0).id()));
 				continue;
 			}
 			lines.add(Component.literal("\u25C6 Pick one (taste):").withStyle(ChatFormatting.AQUA));
@@ -153,6 +162,7 @@ final class EnchantPanel {
 					line.append(fragment(pick.get(i), false, current, all, registry, holders));
 				}
 				lines.add(line);
+				ids.put(line, pick.stream().map(EnchantInfo::id).toList());
 			}
 		}
 		return groupOf;

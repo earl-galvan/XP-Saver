@@ -68,6 +68,16 @@ Install XP Saver on your own game only. Servers and LAN hosts don't need it, and
       Opening it closes Cheapest order, and the reverse.
 - [ ] Empty left slot: "Put an item in the left slot to see its recommended enchantments." A book: "A book accepts any enchantment."
 
+## Enchantment info icons ("!")
+- [ ] Every enchantment entry has a small boxed "!" at the right end of its first line: anvil Recommended list, F1 table
+      Recommended list and Table offers, and the book rows in Cheapest order. Headings, hints and step lines have none.
+- [ ] Hover a "!": a tooltip with the name (gold; red for curses), a short description, "Max level: …", "Can't be combined
+      with: …" in red when it has clashes (Sharpness: Bane of Arthropods, Breach, Density, Impaling, Smite), and for
+      Mending, Frost Walker, Soul Speed, Swift Sneak, Wind Burst and the curses a line saying the table never offers it.
+- [ ] A "Pick one" line holding two enchantments (trident: Loyalty + Channeling) shows both in one tooltip, split by a blank line.
+- [ ] Entry text never runs under the icon; long names wrap instead. Clicking a book row's icon still ticks the book.
+- [ ] Both styles: the icon is drawn in the style's text color (light on Dark, dark gray on Inventory).
+
 ## Look and screen sizes (all panels: F1 table, anvil dropdowns, K planner)
 - [ ] Default (Panel Style: Dark): every panel is a see-through dark box with no frame, shadowed text and a thin scrollbar
       on the right. Headings gold, normal text and step titles white, step details gray, ticked books and the total green,
