@@ -1,6 +1,6 @@
 # XP Saver: manual test checklist
 
-Setup: Minecraft 26.2 with Fabric Loader 0.20.1+, Fabric API 0.161.0+26.2 and `xp-saver-1.0.0.jar` in `mods/`.
+Setup: Minecraft 26.2 with Fabric Loader 0.20.1+, Fabric API 0.161.0+26.2 and `xp-saver-1.2.0+26.2.jar` in `mods/`.
 Create a **Survival** world with **Allow Commands: ON** and set `/difficulty peaceful`, then run:
 
 ```
@@ -62,13 +62,51 @@ Install XP Saver on your own game only. Servers and LAN hosts don't need it, and
 
 ## Anvil dropdown: Recommended enchantments
 - [ ] Open an anvil with a diamond sword in the **left** slot. Two buttons sit left of the anvil: **Recommended enchantments ▼**
-      on top and **Cheapest order ▼** under it (the top label shortens to "Recommended ▼" on narrow screens).
+      on top and **Cheapest order ▼** under it (labels shorten when the buttons are narrow; on narrow screens the buttons
+      sit in a row above the anvil instead, see "Look and screen sizes").
 - [ ] Click Recommended: "For: Diamond Sword", then the same groups as the enchanting-table panel (always pick, pick one).
       Opening it closes Cheapest order, and the reverse.
 - [ ] Empty left slot: "Put an item in the left slot to see its recommended enchantments." A book: "A book accepts any enchantment."
 
+## Look and screen sizes (all panels: F1 table, anvil dropdowns, K planner)
+- [ ] Every panel looks like a vanilla container window: light gray face, white top-left and dark gray bottom-right edge,
+      black outline with cut corners, dark gray text without a shadow, and a sunken scrollbar with a raised thumb.
+- [ ] Colors read on the light face: ticked books dark green, upgrades teal, warnings dark red, used-up or blocked rows gray.
+      The F2 mark is a dark green ✔ or dark red ✘ on the anvil's face.
+- [ ] Resize the window with the anvil open (or change Options → Video Settings → GUI Scale) and check each size:
+  - [ ] 1920×1080 (GUI scale 4) and 1280×720 (scale 3): the buttons are stacked left of the anvil, the panel below them, text at full size.
+  - [ ] 1024×768 (scale 3) and 1280×1024 (scale 4), narrow 4:3 and 5:4 screens: the three buttons move to a row above the
+        anvil (Recommended, Cheapest order, Next step), and the panel left of the anvil draws its text smaller but sharp.
+  - [ ] 640×480 (scale 2): same row layout; the panel text is small (like GUI scale 1) but every line fits.
+  - [ ] At every size nothing covers the anvil or the inventory, clicks on book rows tick the row under the cursor,
+        and a full 7-book run still costs exactly 49 levels.
+- [ ] The F1 table panel follows the same rules (full size where it fits, smaller on narrow screens) and scrolls with the
+      mouse wheel when its list is taller than the table window.
+- [ ] The K planner is a window centered on the screen; resize it and the lines re-wrap to fit. On a short screen the wheel scrolls it.
+
+## Config screen (Mod Menu 20.0.3 for 26.2; optional)
+- [ ] Without Mod Menu the game starts normally and `config/xpsaver.json` is created with the defaults.
+- [ ] With Mod Menu: Mods → XP Saver has a config button. It opens "XP Saver Settings" in the game's own options style,
+      grouped as Features, Position and Size, Text and Readability, Look and Colors, Planner. Every control has a tooltip
+      with its default and range.
+- [ ] Set Panel Side to Right and Panel Y Offset to about 40, press Done, open an enchanting table with a sword: the panel is now
+      right of the window and lower. Open an anvil: its buttons and panel moved the same way. Nothing needed a restart.
+- [ ] Quit the game, start it again: the panel is still on the right and lower (`config/xpsaver.json` holds `"anchor": "RIGHT"`).
+- [ ] Turn off a feature (e.g. Anvil ✔/✘ Mark): it disappears at once; turn it back on: it returns.
+- [ ] Max Levels per Anvil Step 20: the Cheapest order plan re-plans with every step ≤ 20 and the header says "at most 20".
+- [ ] Type `9090` in a color box: the code turns red and nothing changes. Type `909090`: the preview shows 1.9:1 ⚠ in red and
+      the tooltip says the contrast is too low. Default colors all show 4.5:1 or more.
+- [ ] Reset to Defaults asks first; Yes puts every value back (and the file); No keeps them.
+- [ ] Hand-edit the file with a bad value (`"offsetX": 999`, `"anchor": "UP"`): on the next start they come back as 100 and Left.
+
+## Readability (defaults)
+- [ ] Every text color on the light panel has at least 4.5:1 contrast (see the ratios on the config screen).
+- [ ] Hovering a book row in Cheapest order highlights it (both lines when it wraps) and shows the pointing-hand cursor;
+      header and step rows do not highlight.
+- [ ] The steps of the cheapest order are separated by a blank line.
+
 ## Anvil dropdowns: scrolling and readable text
-- [ ] Text is full size (not shrunk). Long lines wrap onto an indented next line; no word is cut off.
+- [ ] Long lines wrap onto an indented next line; no word is cut off.
 - [ ] Ticking or unticking a long book name (Sweeping Edge III) does not move the rows below it.
 - [ ] When the list is taller than the screen, a scrollbar appears on the right; the mouse wheel over the panel scrolls it,
       and the wheel elsewhere does nothing to it. Ticking a book still hits the row under the cursor after scrolling.
