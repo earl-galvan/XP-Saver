@@ -10,6 +10,7 @@ It runs on the client only: it works in single player, on LAN worlds and on serv
 - **Recommended enchantments** (anvil dropdown and next to the enchanting table): the best enchantments for the item, marked by what it already has.
 - **Anvil check**: a ✔ or ✘ next to the output slot, with a tooltip explaining why (invalid, too expensive, or cheaper if the inputs are swapped).
 - **Looks like the game**: every panel is drawn like a Minecraft inventory window and fits any window size or GUI scale. On narrow screens the anvil buttons move to a row above the anvil and the panel text is drawn smaller.
+- **Settings screen**: open it from Mod Menu (Mods → XP Saver → config button) to move the panels, change their size, line spacing and colors, turn features off, or set the most levels one anvil step may cost. Changes apply right away and are saved to `config/xpsaver.json`.
 - **Planner key (K)**: the cheapest order for the held item using your inventory's books, chosen from the Minecraft Wiki's Best enchantments guide.
 
 ## Requirements
@@ -17,6 +18,7 @@ It runs on the client only: it works in single player, on LAN worlds and on serv
 - Fabric Loader 0.20.1 or newer
 - Fabric API (0.161.0+26.2 or newer)
 - Java 25
+- Optional: [Mod Menu](https://modrinth.com/mod/modmenu) (20.0.3 for 26.2) for the in-game settings button. Without it the mod works the same and settings live in `config/xpsaver.json`.
 
 ## Building
 ```

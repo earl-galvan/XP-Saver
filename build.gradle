@@ -13,10 +13,21 @@ loom {
 	}
 }
 
+repositories {
+	maven {
+		name = "TerraformersMC" // Mod Menu
+		url = "https://maven.terraformersmc.com/"
+	}
+}
+
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+	// Mod Menu is optional: compiled against for the config button, never bundled. localRuntime puts it in the dev client only.
+	clientCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+	localRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
 
 	// Unit tests for the plain-Java core (no Minecraft classes involved).
 	testImplementation platform("org.junit:junit-bom:${project.junit_version}")
@@ -41,7 +52,7 @@ processResources {
 
 tasks.withType(JavaCompile).configureEach {
 	it.options.release = 25
-	it.options.compilerArgs += ['-Xlint:all', '-Werror']
+	it.options.compilerArgs += ['-Xlint:all,-classfile', '-Werror'] // -classfile: Gson 2.14 (shipped with 26.2, used for the config file) has annotations whose class files javac's classfile lint can't find
 }
 
 java {

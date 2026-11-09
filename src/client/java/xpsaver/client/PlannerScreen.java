@@ -17,6 +17,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import xpsaver.client.config.XpSaverConfig;
 import xpsaver.core.EnchantInfo;
 import xpsaver.core.Guide;
 import xpsaver.core.Upgrade;
@@ -28,8 +29,6 @@ import xpsaver.core.Planner;
  * panel centered on the screen (see Panel). Lines wrap to the screen width and scroll with the mouse wheel when the screen is short.
  */
 final class PlannerScreen extends Screen {
-	/** Widest the panel gets on large screens, so lines stay easy to read. */
-	private static final int MAX_WIDTH = 360;
 	private final List<Component> lines;
 	private final Panel panel = new Panel();
 
@@ -50,9 +49,10 @@ final class PlannerScreen extends Screen {
 		for (Component line : lines) {
 			widest = Math.max(widest, font.width(line));
 		}
-		int width = Math.min(Math.min(Panel.widthFor(widest), MAX_WIDTH), this.width - 2 * Panel.GAP);
+		// Capped (config: K planner max width) so lines stay easy to read on large screens.
+		int width = Math.min(Math.min(Panel.widthFor(widest), XpSaverConfig.get().plannerMaxWidth), this.width - 2 * Panel.GAP);
 		List<Panel.Row> rows = new ArrayList<>();
-		lines.forEach(line -> Panel.wrap(rows, font, line, Panel.textWidth(width), Panel.TEXT, -1));
+		lines.forEach(line -> Panel.wrap(rows, font, line, Panel.textWidth(width), Panel.text(), -1));
 		panel.setRows(rows);
 		panel.placeCentered(this.width, this.height, width);
 	}
@@ -60,7 +60,7 @@ final class PlannerScreen extends Screen {
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		super.extractRenderState(g, mouseX, mouseY, a);
-		panel.draw(g, font);
+		panel.draw(g, font, mouseX, mouseY);
 	}
 
 	@Override
@@ -137,14 +137,14 @@ final class PlannerScreen extends Screen {
 			for (Planner.Step s : plan.steps()) {
 				out.add(Component.literal(s.number() + ". " + s.left() + " + " + s.right() + ": " + s.cost() + " levels"));
 			}
-			MutableComponent total = Component.literal("Total: " + plan.total() + " levels (every step \u2264 " + Planner.MAX_STEP_COST + ")")
+			MutableComponent total = Component.literal("Total: " + plan.total() + " levels (every step \u2264 " + Planner.maxStepCost + ")")
 					.withStyle(ChatFormatting.GREEN);
 			if (plan.approximate()) {
 				total.append(Component.literal("  (approximate: more than " + Planner.EXACT_LIMIT + " inputs)").withStyle(ChatFormatting.YELLOW));
 			}
 			out.add(total);
 			if (!plan.dropped().isEmpty()) {
-				out.add(Component.literal("Left out to stay within " + Planner.MAX_STEP_COST + " levels per step:").withStyle(ChatFormatting.RED));
+				out.add(Component.literal("Left out to stay within " + Planner.maxStepCost + " levels per step:").withStyle(ChatFormatting.RED));
 				for (String id : plan.dropped()) {
 					out.add(Component.literal("  " + name(registry, id)).withStyle(ChatFormatting.RED));
 				}
