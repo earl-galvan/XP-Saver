@@ -23,7 +23,8 @@ public final class Planner {
 	 * step check; planning runs on a background thread, hence volatile.
 	 */
 	public static volatile int maxStepCost = MAX_STEP_COST;
-	public static final int EXACT_LIMIT = 10;
+	/** Most inputs (item included) searched exactly: 12 takes about half a second on one core (SelectorTest), on a background thread. */
+	public static final int EXACT_LIMIT = 12;
 
 	/** @param leftPiece / rightPiece the exact inputs of this step (book, item, or the result of an earlier step) */
 	public record Step(int number, String left, String right, int cost, Piece leftPiece, Piece rightPiece) {}
@@ -35,7 +36,7 @@ public final class Planner {
 	public record Want(String enchantId, Piece book, String label) {}
 
 	/** @param maxStep the most expensive single step in this subtree */
-	private record Node(Piece piece, int total, int maxStep, Node left, Node right, int stepCost, String label, boolean hasTarget) {}
+	record Node(Piece piece, int total, int maxStep, Node left, Node right, int stepCost, String label, boolean hasTarget) {}
 
 	/** Within one subset and one resulting piece: lower total, then smaller biggest step. Exact, since both only grow upward. */
 	private static boolean cheaper(Node a, Node b) {
@@ -43,7 +44,7 @@ public final class Planner {
 	}
 
 	/** Final choice: lower total, then lower prior work on the finished item, then smaller biggest step. */
-	private static int finalOrder(Node a, Node b) {
+	static int finalOrder(Node a, Node b) {
 		if (a.total != b.total) {
 			return Integer.compare(a.total, b.total);
 		}
@@ -54,7 +55,7 @@ public final class Planner {
 	}
 
 	/** What a subtree leaves behind, for memoizing; the hash is computed once (enchantment maps are hashed entry by entry). */
-	private record Key(int repairCost, Map<String, Integer> enchants, int hash) {
+	record Key(int repairCost, Map<String, Integer> enchants, int hash) {
 		Key(int repairCost, Map<String, Integer> enchants) {
 			this(repairCost, enchants, 31 * repairCost + enchants.hashCode());
 		}
@@ -146,7 +147,7 @@ public final class Planner {
 	}
 
 	/** Best subtree per subset of inputs (bit i = input i) and per resulting piece. Bit 0, the target, is never a right input. */
-	private static List<Map<Key, Node>> exactTable(List<Piece> inputs, List<String> labels, Map<String, EnchantInfo> registry) {
+	static List<Map<Key, Node>> exactTable(List<Piece> inputs, List<String> labels, Map<String, EnchantInfo> registry) {
 		int n = inputs.size();
 		int full = (1 << n) - 1;
 		List<Map<Key, Node>> best = new ArrayList<>(full + 1);
@@ -270,7 +271,7 @@ public final class Planner {
 				res.cost(), null, l.hasTarget || r.hasTarget);
 	}
 
-	private static Plan toPlan(Node root, boolean approximate, List<String> dropped) {
+	static Plan toPlan(Node root, boolean approximate, List<String> dropped) {
 		List<Step> steps = new ArrayList<>();
 		walk(root, steps);
 		return new Plan(steps, root.total, approximate, dropped);
