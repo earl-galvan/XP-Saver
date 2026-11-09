@@ -9,12 +9,18 @@
 	"entrypoints": {
 		"client": [
 			"xpsaver.client.XpSaverClient"
+		],
+		"modmenu": [
+			"xpsaver.client.config.ModMenuIntegration"
 		]
 	},
 	"depends": {
 		"fabricloader": ">=0.20.1",
-		"minecraft": "~26.2",
+		"minecraft": "~26.3",
 		"java": ">=25",
 		"fabric-api": "*"
+	},
+	"suggests": {
+		"modmenu": "*"
 	}
 }

@@ -21,7 +21,6 @@ import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.inventory.AnvilScreen;
 import net.minecraft.core.Registry;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.Style;
 import net.minecraft.util.Util;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.inventory.AnvilMenu;
@@ -29,6 +28,7 @@ import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
+import xpsaver.client.config.XpSaverConfig;
 import xpsaver.core.EnchantInfo;
 import xpsaver.core.Guide;
 import xpsaver.core.Piece;
@@ -38,25 +38,25 @@ import xpsaver.core.Upgrade;
 /**
  * Two dropdowns left of the anvil (clear of item-list mods on the right), one open at a time:
  * "Recommended enchantments" for the item in the left slot (same list as the enchanting table panel), and
- * "Cheapest order": tick enchanted books, see the cheapest order (every step within Planner.MAX_STEP_COST), and press
+ * "Cheapest order": tick enchanted books, see the cheapest order (every step within Planner.maxStepCost), and press
  * "Next step" to move that step's two inputs into the anvil. The player still takes each result, which is when XP is charged.
- * Long content scrolls (mouse wheel) at normal text size instead of shrinking.
- * Hooks (Fabric API 0.161.0+26.2): Screens.getWidgets, ScreenEvents.afterForeground, ScreenMouseEvents.allowMouseClick /
- * allowMouseScroll. Item moves use MultiPlayerGameMode#handleContainerInput (26.2), the same packets as clicking by hand.
+ * Drawn as vanilla container panels (see Panel). Long content scrolls with the mouse wheel. On narrow screens the buttons move to a
+ * row above the anvil and the panel draws its text smaller rather than squeezing it. Which dropdowns show, their side, offsets,
+ * width and button layout come from XpSaverConfig and apply live.
+ * Hooks (Fabric API 0.165.2+26.3): Screens.getWidgets, ScreenEvents.afterForeground, ScreenMouseEvents.allowMouseClick /
+ * allowMouseScroll. Item moves use MultiPlayerGameMode#handleContainerInput (26.3), the same packets as clicking by hand.
  */
 final class AnvilPlanner {
-	/** AnvilMenu (26.2): slots 0 and 1 are inputs, 2 is the result, 3..38 are the player's inventory and hotbar. */
+	/** AnvilMenu (26.3): slots 0 and 1 are inputs, 2 is the result, 3..38 are the player's inventory and hotbar. */
 	private static final int FIRST_INVENTORY_SLOT = 3;
-	private static final int LINE = 10;
 	private static final int BUTTON_H = 16;
+	/** Narrowest side column that still holds the buttons stacked; below it they go in a row above the anvil (button layout Auto). */
+	private static final int STACK_MIN = 100;
 	private static final String TICKED = "[✔] ";
 	private static final String UNTICKED = "[  ] ";
 	private static final String BLOCKED = "[\u2718] ";
 
 	private enum Open { NONE, RECOMMENDED, ORDER }
-
-	/** One text line in the scroll area; {@code bookSlot} >= 0 makes it a checkbox row for that inventory slot. */
-	private record Row(FormattedCharSequence text, int color, int bookSlot) {}
 
 	private final AnvilScreen screen;
 	private final Minecraft mc = Minecraft.getInstance();
@@ -67,6 +67,7 @@ final class AnvilPlanner {
 	private Open open = Open.NONE;
 
 	private List<Piece> planKey = List.of(); // inputs the cached plan was made for
+	private int planBudget; // Planner.maxStepCost the cached plan was made for
 	private Planner.Plan plan;
 	private List<String> droppedLabels = List.of();
 	// Planning runs on the game's background executor so ticking books never stalls a frame; the result is picked up per frame.
@@ -77,13 +78,9 @@ final class AnvilPlanner {
 	private int nextStep;
 	private Component message;
 
-	// Scroll area of the open dropdown, kept from the last frame for mouse handling.
-	private int x;
-	private int width;
-	private int top;
-	private int bottom;
-	private int scroll;
-	private List<Row> rows = List.of();
+	// The open dropdown, kept from the last frame for mouse handling. Row tags are inventory slots of book rows.
+	private final Panel panel = new Panel();
+	private boolean stacked; // buttons stacked left of the anvil (wide screens) rather than in a row above it
 	private List<Integer> bookSlots = List.of();
 	// What each inventory book would do to the item in the left slot, judged before the steps start.
 	private Piece targetPiece;
@@ -104,12 +101,12 @@ final class AnvilPlanner {
 		Screens.getWidgets(screen).add(p.next);
 		p.layout();
 		p.next.visible = false;
-		ScreenEvents.afterForeground(screen).register((s, g, mouseX, mouseY, delta) -> p.draw(g));
+		ScreenEvents.afterForeground(screen).register((s, g, mouseX, mouseY, delta) -> p.draw(g, mouseX, mouseY));
 		// While an item is on the cursor, the mod's UI ignores the whole click (press and release). Letting a button take the press
 		// but hiding the release leaves the screen mid-click, and the next click on a slot is lost.
 		ScreenMouseEvents.allowMouseClick(screen).register((s, event) ->
 				screen.getMenu().getCarried().isEmpty() ? !p.clickBook(event.x(), event.y()) : !p.overUi(event.x(), event.y()));
-		ScreenMouseEvents.allowMouseScroll(screen).register((s, mouseX, mouseY, h, v) -> !p.scroll(mouseX, mouseY, v));
+		ScreenMouseEvents.allowMouseScroll(screen).register((s, mouseX, mouseY, h, v) -> !p.panel.scroll(mouseX, mouseY, v));
 		// The screen focuses a clicked button after its action runs, so give focus back to the rename box once the click is done.
 		ScreenMouseEvents.afterMouseClick(screen).register((s, event, consumed) -> {
 			GuiEventListener focused = screen.getFocused();
@@ -126,7 +123,7 @@ final class AnvilPlanner {
 
 	private void toggle(Open which) {
 		open = open == which ? Open.NONE : which;
-		scroll = 0;
+		panel.scrollToTop();
 	}
 
 	/**
@@ -142,72 +139,103 @@ final class AnvilPlanner {
 		}
 	}
 
-	/** Places the two toggle buttons left of the anvil window; done on attach too, so they never flash at the screen corner. */
-	private int layout() {
-		int left = Panel.leftPos(screen.width);
-		width = Math.min(170, left - 8);
-		x = left - 4 - width;
-		int y = Panel.topPos(screen.height);
-		recToggle.setRectangle(width, BUTTON_H, x, y);
-		String arrow = open == Open.RECOMMENDED ? " \u25B2" : " \u25BC";
-		String full = "Recommended enchantments" + arrow;
-		// Full label when it fits; otherwise the button would scroll its text, which is hard to read.
-		recToggle.setMessage(Component.literal(mc.font.width(full) + 8 <= width ? full : "Recommended" + arrow));
-		orderToggle.setRectangle(width, BUTTON_H, x, y + BUTTON_H + 2);
-		orderToggle.setMessage(Component.literal("Cheapest order " + (open == Open.ORDER ? "\u25B2" : "\u25BC")));
-		return y;
+	/** The mod's buttons that are switched on in the config, top to bottom; Next step belongs to Cheapest order. */
+	private List<Button> shownButtons() {
+		XpSaverConfig cfg = XpSaverConfig.get();
+		List<Button> shown = new ArrayList<>();
+		if (cfg.recommendedDropdown) {
+			shown.add(recToggle);
+		}
+		if (cfg.cheapestOrderDropdown) {
+			shown.add(orderToggle);
+			shown.add(next);
+		}
+		return shown;
 	}
 
-	private void draw(GuiGraphicsExtractor g) {
-		int y = layout();
+	/**
+	 * Places the buttons: stacked beside the anvil window when the side column is wide enough (or the config says so), else in a
+	 * row above the window, then moved by the configured offset. Done on attach too, so they never flash at the screen corner.
+	 */
+	private void layout() {
+		XpSaverConfig cfg = XpSaverConfig.get();
+		recToggle.visible = cfg.recommendedDropdown;
+		orderToggle.visible = cfg.cheapestOrderDropdown;
+		if ((open == Open.RECOMMENDED && !cfg.recommendedDropdown) || (open == Open.ORDER && !cfg.cheapestOrderDropdown)) {
+			open = Open.NONE; // switched off in the config while open
+		}
+		int top = Panel.topPos(screen.height);
+		int room = Panel.sideRoom(screen.width);
+		stacked = cfg.buttonLayout == XpSaverConfig.ButtonLayout.STACKED
+				|| (cfg.buttonLayout == XpSaverConfig.ButtonLayout.AUTO && room >= STACK_MIN);
+		List<Button> shown = shownButtons();
+		if (stacked) {
+			int w = Math.max(40, Math.min(cfg.panelWidth, room));
+			int bx = onScreen(Panel.sideX(screen.width, w) + cfg.offsetX, w);
+			for (int i = 0; i < shown.size(); i++) {
+				shown.get(i).setRectangle(w, BUTTON_H, bx, Math.max(0, top + cfg.offsetY + i * (BUTTON_H + 2)));
+			}
+		} else if (!shown.isEmpty()) {
+			int total = Math.min(screen.width - 2 * Panel.GAP, 110 * shown.size());
+			int cell = (total - 2 * (shown.size() - 1)) / shown.size();
+			int bx = onScreen((screen.width - total) / 2 + cfg.offsetX, total);
+			int by = Math.max(2, top - BUTTON_H - 2 + cfg.offsetY);
+			for (int i = 0; i < shown.size(); i++) {
+				shown.get(i).setRectangle(cell, BUTTON_H, bx + i * (cell + 2), by);
+			}
+		}
+		// Longest label that fits; a button scrolls text that doesn't, which is hard to read.
+		String recArrow = open == Open.RECOMMENDED ? " \u25B2" : " \u25BC";
+		String orderArrow = open == Open.ORDER ? " \u25B2" : " \u25BC";
+		recToggle.setMessage(label(recToggle, "Recommended enchantments" + recArrow, "Recommended" + recArrow, "Enchants" + recArrow));
+		orderToggle.setMessage(label(orderToggle, "Cheapest order" + orderArrow, "Cheapest" + orderArrow));
+		next.setMessage(label(next, "Next step \u25B6", "Next \u25B6"));
+	}
+
+	/** Keeps something {@code width} wide inside the screen horizontally. */
+	private int onScreen(int x, int width) {
+		return Math.max(0, Math.min(screen.width - width, x));
+	}
+
+	private Component label(Button button, String... options) {
+		for (String option : options) {
+			if (mc.font.width(option) + 8 <= button.getWidth()) {
+				return Component.literal(option);
+			}
+		}
+		return Component.literal(options[options.length - 1]);
+	}
+
+	private void draw(GuiGraphicsExtractor g, int mouseX, int mouseY) {
+		layout();
 		next.visible = false;
-		rows = List.of();
-		if (open == Open.NONE || width < 40 || mc.level == null) {
+		panel.setRows(List.of());
+		if (open == Open.NONE || mc.level == null) {
 			return;
 		}
 		Registry<Enchantment> registry = Enchants.registry(mc);
 		AnvilMenu menu = screen.getMenu();
-		Font font = mc.font;
-		int textWidth = width - 10; // room for the scrollbar
-		top = y + 2 * (BUTTON_H + 2);
-		if (open == Open.RECOMMENDED) {
-			rows = recommendedRows(menu, registry, font, textWidth);
-		} else {
+		int y = Panel.topPos(screen.height);
+		int toggles = (recToggle.visible ? 1 : 0) + (orderToggle.visible ? 1 : 0);
+		int top = stacked ? y + toggles * (BUTTON_H + 2) : y;
+		if (open == Open.ORDER) {
 			refreshPlan(menu, registry);
 			next.visible = plan != null && nextStep < plan.steps().size();
-			next.setRectangle(width, BUTTON_H, x, top);
-			if (next.visible) {
+			if (stacked && next.visible) {
 				top += BUTTON_H + 2;
 			}
-			rows = orderRows(menu, font, textWidth);
 		}
-		// End level with the bottom of the anvil window and scroll the rest: the screen corner below it is where
+		// By default end level with the bottom of the anvil window and scroll the rest: the screen corner below it is where
 		// JEI (and other mods) put their buttons, which would cover the last lines.
-		bottom = Math.min(y + Panel.IMAGE_HEIGHT, screen.height - 4);
-		int contentHeight = rows.size() * LINE + 4;
-		int viewHeight = Math.min(contentHeight, bottom - top);
-		bottom = top + viewHeight;
-		scroll = Math.max(0, Math.min(scroll, contentHeight - viewHeight));
-
-		g.fill(x, top, x + width, bottom, 0xD0101010);
-		g.enableScissor(x, top, x + width, bottom);
-		for (int i = 0; i < rows.size(); i++) {
-			int rowY = top + 2 + i * LINE - scroll;
-			if (rowY + LINE > top && rowY < bottom) {
-				g.text(font, rows.get(i).text(), x + 3, rowY, rows.get(i).color());
-			}
+		if (!panel.placeBeside(screen.width, screen.height, top, Panel.bottom(screen.height), XpSaverConfig.get().panelWidth)) {
+			return;
 		}
-		g.disableScissor();
-		if (contentHeight > viewHeight) { // scrollbar: track and thumb on the right edge
-			int track = bottom - top;
-			int thumb = Math.max(10, track * viewHeight / contentHeight);
-			int thumbY = top + (track - thumb) * scroll / (contentHeight - viewHeight);
-			g.fill(x + width - 4, top, x + width - 1, bottom, 0xFF303030);
-			g.fill(x + width - 4, thumbY, x + width - 1, thumbY + thumb, 0xFFA0A0A0);
-		}
+		int textWidth = Panel.textWidth(panel.width());
+		panel.setRows(open == Open.RECOMMENDED ? recommendedRows(menu, registry, mc.font, textWidth) : orderRows(menu, mc.font, textWidth));
+		panel.draw(g, mc.font, mouseX, mouseY);
 	}
 
-	private List<Row> recommendedRows(AnvilMenu menu, Registry<Enchantment> registry, Font font, int textWidth) {
+	private List<Panel.Row> recommendedRows(AnvilMenu menu, Registry<Enchantment> registry, Font font, int textWidth) {
 		ItemStack item = menu.getSlot(AnvilMenu.INPUT_SLOT).getItem();
 		List<Component> lines = new ArrayList<>();
 		if (item.isEmpty()) {
@@ -218,16 +246,16 @@ final class AnvilPlanner {
 				lines.add(Component.literal("This item can't be enchanted.").withStyle(ChatFormatting.GRAY));
 			}
 		}
-		List<Row> out = new ArrayList<>();
-		lines.forEach(line -> addWrapped(out, font, line, textWidth, 0xFFFFFFFF, -1));
+		List<Panel.Row> out = new ArrayList<>();
+		lines.forEach(line -> Panel.wrap(out, font, line, textWidth, Panel.text(), -1));
 		return out;
 	}
 
-	private List<Row> orderRows(AnvilMenu menu, Font font, int textWidth) {
-		List<Row> out = new ArrayList<>();
-		addWrapped(out, font, Component.literal("Tick the books to use:").withStyle(ChatFormatting.GOLD), textWidth, 0xFFFFFFFF, -1);
+	private List<Panel.Row> orderRows(AnvilMenu menu, Font font, int textWidth) {
+		List<Panel.Row> out = new ArrayList<>();
+		Panel.wrap(out, font, Component.literal("Tick the books to use:").withStyle(ChatFormatting.GOLD), textWidth, Panel.text(), -1);
 		if (bookSlots.isEmpty()) {
-			addWrapped(out, font, Component.literal("No enchanted books in your inventory.").withStyle(ChatFormatting.GRAY), textWidth, 0xFFFFFFFF, -1);
+			Panel.wrap(out, font, Component.literal("No enchanted books in your inventory.").withStyle(ChatFormatting.GRAY), textWidth, Panel.text(), -1);
 		}
 		int widestBox = Math.max(font.width(BLOCKED), Math.max(font.width(TICKED), font.width(UNTICKED)));
 		Registry<Enchantment> registry = Enchants.registry(mc);
@@ -238,15 +266,15 @@ final class AnvilPlanner {
 			Component line = Component.literal(box + bookName(menu.getSlot(slot).getItem()));
 			// Wrap as if the box were always the widest one, so ticking never re-wraps a row and moves the rows below it.
 			int wrapWidth = textWidth - (widestBox - font.width(box));
-			addWrapped(out, font, line, wrapWidth, off ? 0xFF808080 : on ? 0xFF55FF55 : 0xFFFFFFFF, off ? -1 : slot);
+			Panel.wrap(out, font, line, wrapWidth, off ? Panel.dimmed() : on ? Panel.green() : Panel.text(), off ? -1 : slot);
 			if (!running && targetPiece != null) {
 				Component why = effectLine(registry, effects.getOrDefault(slot, List.of()));
 				if (why != null) {
-					addIndented(out, font, why, textWidth, widestBox, off ? -1 : slot); // lined up under the book name
+					Panel.indented(out, font, why, textWidth, widestBox, off ? -1 : slot); // lined up under the book name
 				}
 			}
 		}
-		out.add(new Row(FormattedCharSequence.EMPTY, 0, -1));
+		out.add(new Panel.Row(FormattedCharSequence.EMPTY, Panel.text(), -1));
 
 		List<Component> lines = new ArrayList<>();
 		if (plan == null) {
@@ -259,7 +287,7 @@ final class AnvilPlanner {
 					: "Tick at least one book.";
 			lines.add(Component.literal(hint).withStyle(ChatFormatting.GRAY));
 		} else {
-			lines.add(Component.literal("Cheapest order (at most " + Planner.MAX_STEP_COST + " levels per step):").withStyle(ChatFormatting.GOLD));
+			lines.add(Component.literal("Cheapest order (at most " + Planner.maxStepCost + " levels per step):").withStyle(ChatFormatting.GOLD));
 			boolean finished = running && nextStep == plan.steps().size() && !menu.getSlot(AnvilMenu.INPUT_SLOT).hasItem()
 					&& !menu.getSlot(AnvilMenu.ADDITIONAL_SLOT).hasItem(); // last result taken
 			if (finished) {
@@ -268,6 +296,9 @@ final class AnvilPlanner {
 			int current = finished ? plan.steps().size() : running ? nextStep - 1 : -1; // step now in the anvil
 			for (Planner.Step s : plan.steps()) {
 				int i = s.number() - 1;
+				if (i > 0) {
+					lines.add(Component.empty()); // a blank line between steps, so each reads as its own block
+				}
 				String mark = i < current ? "\u2714 " : i == current ? "\u25B6 " : "";
 				ChatFormatting style = i < current ? ChatFormatting.DARK_GRAY : i == current ? ChatFormatting.YELLOW : ChatFormatting.WHITE;
 				lines.add(Component.literal(mark + "Step " + s.number() + ": " + s.cost() + " levels").withStyle(style));
@@ -276,7 +307,7 @@ final class AnvilPlanner {
 			}
 			lines.add(Component.literal("Total: " + plan.total() + " levels").withStyle(ChatFormatting.GREEN));
 			if (!droppedLabels.isEmpty()) {
-				lines.add(Component.literal("Left out to keep every step at or under " + Planner.MAX_STEP_COST + " levels:")
+				lines.add(Component.literal("Left out to keep every step at or under " + Planner.maxStepCost + " levels:")
 						.withStyle(ChatFormatting.RED));
 				droppedLabels.forEach(l -> lines.add(Component.literal("   " + l).withStyle(ChatFormatting.RED)));
 			}
@@ -287,7 +318,7 @@ final class AnvilPlanner {
 		if (message != null) {
 			lines.add(message);
 		}
-		lines.forEach(line -> addWrapped(out, font, line, textWidth, 0xFFFFFFFF, -1));
+		lines.forEach(line -> Panel.wrap(out, font, line, textWidth, Panel.text(), -1));
 		return out;
 	}
 
@@ -312,27 +343,6 @@ final class AnvilPlanner {
 		return Component.literal(String.join("; ", parts)).withStyle(color);
 	}
 
-	/** Wraps a line to the panel width; continuation lines get a hanging indent so wrapped entries still read as one. */
-	private static void addWrapped(List<Row> out, Font font, Component line, int width, int color, int bookSlot) {
-		List<FormattedCharSequence> parts = font.split(line, width);
-		if (parts.size() > 1) { // only lines that really wrap give up room for the indent
-			parts = font.split(line, width - font.width("   "));
-		}
-		FormattedCharSequence indent = FormattedCharSequence.forward("   ", Style.EMPTY);
-		for (int i = 0; i < parts.size(); i++) {
-			out.add(new Row(i == 0 ? parts.get(i) : FormattedCharSequence.composite(indent, parts.get(i)), color, bookSlot));
-		}
-	}
-
-	/** Wraps {@code line} into the space right of {@code indentPx}, every part starting at the same x. */
-	private static void addIndented(List<Row> out, Font font, Component line, int width, int indentPx, int bookSlot) {
-		int spaces = Math.max(1, Math.round(indentPx / (float) font.width(" ")));
-		FormattedCharSequence indent = FormattedCharSequence.forward(" ".repeat(spaces), Style.EMPTY);
-		for (FormattedCharSequence part : font.split(line, width - font.width(" ".repeat(spaces)))) {
-			out.add(new Row(FormattedCharSequence.composite(indent, part), 0xFFFFFFFF, bookSlot));
-		}
-	}
-
 	/** Planner labels as words: "result of step 3" -> "the result of step 3". */
 	private static String readable(String label) {
 		return label.startsWith("result of step ") ? "the " + label : label;
@@ -340,18 +350,8 @@ final class AnvilPlanner {
 
 	/** True over the toggle buttons, the Next step button, or the open dropdown's panel. */
 	private boolean overUi(double mouseX, double mouseY) {
-		boolean inPanel = open != Open.NONE && !rows.isEmpty() && mouseX >= x && mouseX < x + width && mouseY >= top && mouseY < bottom;
-		return inPanel || recToggle.isMouseOver(mouseX, mouseY) || orderToggle.isMouseOver(mouseX, mouseY)
-				|| (next.visible && next.isMouseOver(mouseX, mouseY));
-	}
-
-	/** Mouse wheel over the open dropdown scrolls it. Returns true if handled. */
-	private boolean scroll(double mouseX, double mouseY, double amount) {
-		if (rows.isEmpty() || mouseX < x || mouseX >= x + width || mouseY < top || mouseY >= bottom) {
-			return false;
-		}
-		scroll -= (int) Math.round(amount * LINE * 2);
-		return true; // clamped on the next frame
+		return panel.contains(mouseX, mouseY) || (recToggle.visible && recToggle.isMouseOver(mouseX, mouseY))
+				|| (orderToggle.visible && orderToggle.isMouseOver(mouseX, mouseY)) || (next.visible && next.isMouseOver(mouseX, mouseY));
 	}
 
 	/** Takes a finished background plan, if it is still for the current item and ticked books. */
@@ -423,10 +423,11 @@ final class AnvilPlanner {
 
 		List<Piece> key = new ArrayList<>(List.of(targetPiece));
 		wants.forEach(w -> key.add(w.book()));
-		if (key.equals(planKey)) {
+		if (key.equals(planKey) && planBudget == Planner.maxStepCost) {
 			return;
 		}
 		planKey = key;
+		planBudget = Planner.maxStepCost; // a new budget from the config screen re-plans
 		plan = null;
 		planFailed = false;
 		nextStep = 0;
@@ -440,18 +441,13 @@ final class AnvilPlanner {
 
 	/** Ticks or unticks a book row. Returns true for any click inside an open panel, so the screen never sees it as an outside click. */
 	private boolean clickBook(double mouseX, double mouseY) {
-		boolean inPanel = open != Open.NONE && !rows.isEmpty() && mouseX >= x && mouseX < x + width && mouseY >= top && mouseY < bottom;
-		if (!inPanel) {
+		if (!panel.contains(mouseX, mouseY)) {
 			return false;
 		}
-		if (open != Open.ORDER) {
-			return true; // the Recommended panel is text only; swallow the click so it never counts as outside the window
-		}
-		int index = (int) ((mouseY - top - 2 + scroll) / LINE);
-		if (index < 0 || index >= rows.size() || rows.get(index).bookSlot() < 0) {
+		int slot = open == Open.ORDER ? panel.tagAt(mouseX, mouseY) : -1; // the Recommended panel is text only
+		if (slot < 0) {
 			return true; // inside the panel but not a book: swallow it, or the screen treats it as a click outside and drops the cursor item
 		}
-		int slot = rows.get(index).bookSlot();
 		if (!checked.remove(slot)) {
 			checked.add(slot);
 		}

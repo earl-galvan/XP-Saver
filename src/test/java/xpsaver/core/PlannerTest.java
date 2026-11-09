@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** Step prices come from AnvilCost, which ports AnvilMenu#createResult (Minecraft 26.2). */
+/** Step prices come from AnvilCost, which ports AnvilMenu#createResult (Minecraft 26.3). */
 class PlannerTest {
 	private static final List<Piece> SIX_BOOKS = List.of(
 			sword(0, Map.of()),
@@ -106,6 +106,21 @@ class PlannerTest {
 		assertEquals(List.of(), plan.dropped());
 		assertEquals(77, plan.total());
 		assertEquals(Planner.MAX_STEP_COST, plan.steps().stream().mapToInt(Planner.Step::cost).max().orElseThrow());
+	}
+
+	@Test
+	void followsTheBudgetSetInTheConfig() {
+		try {
+			for (int budget : new int[] {15, 39}) {
+				Planner.maxStepCost = budget;
+				Planner.Plan plan = Planner.planGuided(sword(7, Map.of()), "sword", guideSwordWants(), REGISTRY);
+				assertTrue(plan.steps().stream().allMatch(s -> s.cost() <= budget), "budget " + budget);
+			}
+			// A looser budget never makes the full plan dearer than the default's 77.
+			assertTrue(Planner.planGuided(sword(7, Map.of()), "sword", guideSwordWants(), REGISTRY).total() <= 77);
+		} finally {
+			Planner.maxStepCost = Planner.MAX_STEP_COST;
+		}
 	}
 
 	@Test
