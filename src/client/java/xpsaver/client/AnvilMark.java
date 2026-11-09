@@ -57,6 +57,9 @@ final class AnvilMark {
 		} else if (swapped.valid() && here.valid() && swapped.cost() < here.cost()) {
 			ok = false;
 			reason = Component.literal("Cheaper order exists: swap the inputs (" + swapped.cost() + " instead of " + here.cost() + " levels)");
+		} else if (Xp.level(mc) >= 0 && Xp.level(mc) < cost) {
+			ok = false; // AnvilMenu#mayPickup: the result can't be taken without the levels
+			reason = Component.literal("Cheapest order, but it costs " + cost + " levels and you have " + Xp.level(mc));
 		} else {
 			ok = true;
 			reason = Component.literal("Valid, cheapest order: " + cost + " levels");

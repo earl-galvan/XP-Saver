@@ -154,15 +154,21 @@ class PlannerTest {
 	void aboveTheLimitUsesGreedyAndSaysSo() {
 		List<Piece> inputs = new ArrayList<>(SIX_BOOKS);
 		inputs.add(book(0, Map.of("minecraft:knockback", 2)));
-		for (int i = 0; i < 4; i++) {
+		while (inputs.size() <= Planner.EXACT_LIMIT) {
 			inputs.add(book(0, Map.of("minecraft:unbreaking", 1)));
 		}
 		assertTrue(inputs.size() > Planner.EXACT_LIMIT);
-		Planner.Plan plan = Planner.plan(inputs, labels(inputs.size()), REGISTRY);
-		assertNotNull(plan);
-		assertTrue(plan.approximate());
-		assertEquals(inputs.size() - 1, plan.steps().size());
-		assertTrue(plan.steps().stream().allMatch(s -> s.cost() <= Planner.MAX_STEP_COST));
+		int budget = Planner.maxStepCost;
+		Planner.maxStepCost = 39; // this many books only fit under the anvil's own limit
+		try {
+			Planner.Plan plan = Planner.plan(inputs, labels(inputs.size()), REGISTRY);
+			assertNotNull(plan);
+			assertTrue(plan.approximate());
+			assertEquals(inputs.size() - 1, plan.steps().size());
+			assertTrue(plan.steps().stream().allMatch(s -> s.cost() <= 39));
+		} finally {
+			Planner.maxStepCost = budget;
+		}
 	}
 
 	/** One max-level book per enchantment in the guide's sword list, highest priority first. */
