@@ -27,7 +27,7 @@
 	"xpsaver.config.line_spacing": "Line Spacing",
 	"xpsaver.config.scroll_lines": "Scroll Speed",
 	"xpsaver.config.text_shadow": "Text Shadow",
-	"xpsaver.config.frame": "Panel Frame",
+	"xpsaver.config.frame": "Frame",
 	"xpsaver.config.opacity": "Panel Opacity",
 	"xpsaver.config.color.face": "Panel color",
 	"xpsaver.config.color.text": "Text",
@@ -50,5 +50,11 @@
 	"xpsaver.config.value.full_screen": "Full screen",
 	"xpsaver.config.value.never_shrink": "Full size",
 	"xpsaver.config.value.inventory": "Inventory",
-	"xpsaver.config.value.flat": "Flat"
+	"xpsaver.config.value.flat": "Flat",
+	"xpsaver.config.style": "Panel Style",
+	"xpsaver.config.value.dark": "Dark",
+	"xpsaver.config.colors.dark": "Colors: Dark style",
+	"xpsaver.config.colors.inventory": "Colors: Inventory style",
+	"xpsaver.config.color.heading": "Headings",
+	"xpsaver.config.value.beveled": "Window edge"
 }
