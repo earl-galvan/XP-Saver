@@ -17,20 +17,15 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
-import xpsaver.client.config.XpSaverConfig;
 import xpsaver.core.EnchantInfo;
 import xpsaver.core.Guide;
 import xpsaver.core.Upgrade;
 import xpsaver.core.Piece;
 import xpsaver.core.Planner;
 
-/**
- * F3: cheapest combine order for the held item and the inventory's books chosen by the best enchantments guide, in a vanilla-style
- * panel centered on the screen (see Panel). Lines wrap to the screen width and scroll with the mouse wheel when the screen is short.
- */
+/** F3: cheapest combine order for the held item and the inventory's books chosen by the best enchantments guide. */
 final class PlannerScreen extends Screen {
 	private final List<Component> lines;
-	private final Panel panel = new Panel();
 
 	PlannerScreen(Minecraft mc) {
 		super(Component.literal("XP Saver planner"));
@@ -42,30 +37,14 @@ final class PlannerScreen extends Screen {
 		return false;
 	}
 
-	/** Runs on open and on every resize, so the panel always fits the window. */
-	@Override
-	protected void init() {
-		int widest = 0;
-		for (Component line : lines) {
-			widest = Math.max(widest, font.width(line));
-		}
-		// Capped (config: K planner max width) so lines stay easy to read on large screens.
-		int width = Math.min(Math.min(Panel.widthFor(widest), XpSaverConfig.get().plannerMaxWidth), this.width - 2 * Panel.GAP);
-		List<Panel.Row> rows = new ArrayList<>();
-		lines.forEach(line -> Panel.wrap(rows, font, line, Panel.textWidth(width), Panel.text(), -1));
-		panel.setRows(rows);
-		panel.placeCentered(this.width, this.height, width);
-	}
-
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		super.extractRenderState(g, mouseX, mouseY, a);
-		panel.draw(g, font, mouseX, mouseY);
-	}
-
-	@Override
-	public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
-		return panel.scroll(x, y, scrollY) || super.mouseScrolled(x, y, scrollX, scrollY);
+		int y = 20;
+		for (Component line : lines) {
+			g.text(font, line, 20, y, 0xFFFFFFFF);
+			y += 11;
+		}
 	}
 
 	private static List<Component> buildLines(Minecraft mc) {
@@ -137,14 +116,14 @@ final class PlannerScreen extends Screen {
 			for (Planner.Step s : plan.steps()) {
 				out.add(Component.literal(s.number() + ". " + s.left() + " + " + s.right() + ": " + s.cost() + " levels"));
 			}
-			MutableComponent total = Component.literal("Total: " + plan.total() + " levels (every step \u2264 " + Planner.maxStepCost + ")")
+			MutableComponent total = Component.literal("Total: " + plan.total() + " levels (every step \u2264 " + Planner.MAX_STEP_COST + ")")
 					.withStyle(ChatFormatting.GREEN);
 			if (plan.approximate()) {
 				total.append(Component.literal("  (approximate: more than " + Planner.EXACT_LIMIT + " inputs)").withStyle(ChatFormatting.YELLOW));
 			}
 			out.add(total);
 			if (!plan.dropped().isEmpty()) {
-				out.add(Component.literal("Left out to stay within " + Planner.maxStepCost + " levels per step:").withStyle(ChatFormatting.RED));
+				out.add(Component.literal("Left out to stay within " + Planner.MAX_STEP_COST + " levels per step:").withStyle(ChatFormatting.RED));
 				for (String id : plan.dropped()) {
 					out.add(Component.literal("  " + name(registry, id)).withStyle(ChatFormatting.RED));
 				}

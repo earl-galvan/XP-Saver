@@ -26,7 +26,7 @@ import net.minecraft.network.chat.Component;
 final class Enchants {
 	private Enchants() {}
 
-	/** Client registry, as EnchantmentScreen#extractRenderState looks it up (26.3): level.registryAccess().lookupOrThrow(ENCHANTMENT). */
+	/** Client registry, as EnchantmentScreen#extractRenderState looks it up (26.2): level.registryAccess().lookupOrThrow(ENCHANTMENT). */
 	static Registry<Enchantment> registry(Minecraft mc) {
 		return mc.level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
 	}
@@ -35,7 +35,7 @@ final class Enchants {
 		return holder.getRegisteredName();
 	}
 
-	/** Enchantment record (26.3): definition max level / anvil cost, exclusiveSet HolderSet. */
+	/** Enchantment record (26.2): definition max level / anvil cost, exclusiveSet HolderSet. */
 	static EnchantInfo info(Holder<Enchantment> holder) {
 		Enchantment e = holder.value();
 		Set<String> exclusive = e.exclusiveSet().stream().map(Holder::getRegisteredName).collect(Collectors.toSet());
@@ -79,7 +79,7 @@ final class Enchants {
 		};
 	}
 
-	/** The fields AnvilMenu#createResult reads from one input (26.3). */
+	/** The fields AnvilMenu#createResult reads from one input (26.2). */
 	static Piece piece(ItemStack stack, Registry<Enchantment> registry) {
 		Map<String, Integer> enchants = new LinkedHashMap<>();
 		// getEnchantmentsForCrafting: STORED_ENCHANTMENTS for books, ENCHANTMENTS otherwise, as AnvilMenu uses it.

@@ -5,7 +5,7 @@ import java.util.Map;
 
 /**
  * The vanilla anvil price for putting {@code right} onto {@code left}.
- * Line-by-line port of net.minecraft.world.inventory.AnvilMenu#createResult (Minecraft 26.3, decompiled with Loom genSources),
+ * Line-by-line port of net.minecraft.world.inventory.AnvilMenu#createResult (Minecraft 26.2, decompiled with Loom genSources),
  * limited to the enchantment and item-sacrifice paths.
  * shortcut: material repair (e.g. diamonds on a diamond sword) is not modelled; AnvilMark uses the game's own displayed
  * cost for that case and the planner never repairs.

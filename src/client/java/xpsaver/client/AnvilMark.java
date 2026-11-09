@@ -11,13 +11,12 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.AnvilMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
-import xpsaver.client.config.XpSaverConfig;
 import xpsaver.core.AnvilCost;
 import xpsaver.core.EnchantInfo;
 
 /** F2: check or cross next to the anvil output slot, with the reason as a tooltip. */
 final class AnvilMark {
-	/** AnvilMenu input slot definitions (26.3): result slot at (134, 47), 16 px wide. */
+	/** AnvilMenu input slot definitions (26.2): result slot at (134, 47), 16 px wide. */
 	private static final int MARK_X = 134 + 16 + 4;
 	private static final int MARK_Y = 47 + 4;
 
@@ -28,7 +27,7 @@ final class AnvilMark {
 		AnvilMenu menu = screen.getMenu();
 		ItemStack left = menu.getSlot(AnvilMenu.INPUT_SLOT).getItem();
 		ItemStack right = menu.getSlot(AnvilMenu.ADDITIONAL_SLOT).getItem();
-		if (!XpSaverConfig.get().anvilMark || left.isEmpty() || right.isEmpty() || mc.level == null || mc.player == null) {
+		if (left.isEmpty() || right.isEmpty() || mc.level == null || mc.player == null) {
 			return; // rename-only or empty: nothing to compare
 		}
 		boolean creative = mc.player.hasInfiniteMaterials();
@@ -62,11 +61,9 @@ final class AnvilMark {
 			reason = Component.literal("Valid, cheapest order: " + cost + " levels");
 		}
 
-		XpSaverConfig cfg = XpSaverConfig.get();
-		int x = Panel.leftPos(screen.width) + MARK_X + cfg.markOffsetX;
-		int y = Panel.topPos(screen.height) + MARK_Y + cfg.markOffsetY;
-		// Dark and without a shadow by default, like the window's own labels.
-		g.text(mc.font, ok ? "✔" : "✘", x, y, ok ? Panel.green() : Panel.red(), cfg.textShadow);
+		int x = Panel.leftPos(screen.width) + MARK_X;
+		int y = Panel.topPos(screen.height) + MARK_Y;
+		g.text(mc.font, ok ? "✔" : "✘", x, y, ok ? 0xFF55FF55 : 0xFFFF5555);
 		if (mouseX >= x - 1 && mouseX < x + 9 && mouseY >= y - 1 && mouseY < y + 9) {
 			g.setComponentTooltipForNextFrame(mc.font, List.of(reason.copy().withStyle(ok ? ChatFormatting.GREEN : ChatFormatting.RED)), mouseX, mouseY);
 		}

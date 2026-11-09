@@ -5,10 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.ChatFormatting;
-import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
-import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.EnchantmentScreen;
 import net.minecraft.core.Holder;
@@ -19,32 +16,20 @@ import net.minecraft.world.inventory.EnchantmentMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
-import xpsaver.client.config.XpSaverConfig;
 import xpsaver.core.EnchantInfo;
 import xpsaver.core.Piece;
 import xpsaver.core.Upgrade;
 import xpsaver.core.Recommender;
 
-/**
- * F1: recommendations beside the enchanting table, and which visible offer matches them, in a vanilla-style panel (see Panel).
- * Whether it shows, and whether it lists the table's offers, come from XpSaverConfig and apply live.
- */
+/** F1: recommendations beside the enchanting table, and which visible offer matches them. */
 final class EnchantPanel {
 	private EnchantPanel() {}
 
-	/** Draws the panel every frame and lets the mouse wheel scroll it (long lists on small screens). */
-	static void attach(EnchantmentScreen screen) {
-		Panel panel = new Panel();
-		ScreenEvents.afterForeground(screen).register((s, g, mouseX, mouseY, delta) -> draw(screen, g, panel, mouseX, mouseY));
-		ScreenMouseEvents.allowMouseScroll(screen).register((s, mouseX, mouseY, h, v) -> !panel.scroll(mouseX, mouseY, v));
-	}
-
-	private static void draw(EnchantmentScreen screen, GuiGraphicsExtractor g, Panel panel, int mouseX, int mouseY) {
-		panel.setRows(List.of());
+	static void draw(EnchantmentScreen screen, GuiGraphicsExtractor g) {
 		Minecraft mc = Minecraft.getInstance();
 		EnchantmentMenu menu = screen.getMenu();
 		ItemStack item = menu.getSlot(0).getItem();
-		if (!XpSaverConfig.get().tablePanel || item.isEmpty() || mc.level == null) {
+		if (item.isEmpty() || mc.level == null) {
 			return;
 		}
 		List<Component> lines = new ArrayList<>();
@@ -52,14 +37,10 @@ final class EnchantPanel {
 		Registry<Enchantment> registry = Enchants.registry(mc);
 		Map<String, Recommender.Group> groupOf = addRecommendations(item, registry, lines);
 		if (item.is(Items.BOOK)) {
-			show(screen, g, panel, lines, mouseX, mouseY);
+			Panel.draw(g, mc.font, lines, screen.width, screen.height);
 			return;
 		}
 		if (groupOf.isEmpty()) {
-			return;
-		}
-		if (!XpSaverConfig.get().tableOffers) {
-			show(screen, g, panel, lines, mouseX, mouseY);
 			return;
 		}
 
@@ -84,24 +65,7 @@ final class EnchantPanel {
 			}
 			lines.add(line);
 		}
-		show(screen, g, panel, lines, mouseX, mouseY);
-	}
-
-	/** Beside the table (left by default), level with its window; lines wrap to the room there. */
-	private static void show(EnchantmentScreen screen, GuiGraphicsExtractor g, Panel panel, List<Component> lines, int mouseX, int mouseY) {
-		Font font = Minecraft.getInstance().font;
-		int widest = 0;
-		for (Component line : lines) {
-			widest = Math.max(widest, font.width(line));
-		}
-		int top = Panel.topPos(screen.height);
-		if (!panel.placeBeside(screen.width, screen.height, top, Panel.bottom(screen.height), Panel.widthFor(widest))) {
-			return;
-		}
-		List<Panel.Row> rows = new ArrayList<>();
-		lines.forEach(line -> Panel.wrap(rows, font, line, Panel.textWidth(panel.width()), Panel.text(), -1));
-		panel.setRows(rows);
-		panel.draw(g, font, mouseX, mouseY);
+		Panel.draw(g, mc.font, lines, screen.width, screen.height);
 	}
 
 	/** One recommendation, marked by what the item already has: ✔ has it, ↑ can be upgraded, ✘ blocked; plain if it's new. */

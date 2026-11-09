@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** Conflicts from data/minecraft/tags/enchantment/exclusive_set/damage.json (Minecraft 26.3). */
+/** Conflicts from data/minecraft/tags/enchantment/exclusive_set/damage.json (Minecraft 26.2). */
 class RecommenderTest {
 	@Test
 	void swordDamageEnchantsFormOneChoiceAndTheRestStandAlone() {

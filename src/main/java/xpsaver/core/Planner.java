@@ -18,17 +18,12 @@ import java.util.Map;
 public final class Planner {
 	/** Most levels any single anvil step may cost. Vanilla refuses 40+; this is a stricter, player-chosen budget. */
 	public static final int MAX_STEP_COST = 29;
-	/**
-	 * The budget plans use: {@link #MAX_STEP_COST} unless the player changes it in the config screen (1 to 39). Read once per
-	 * step check; planning runs on a background thread, hence volatile.
-	 */
-	public static volatile int maxStepCost = MAX_STEP_COST;
 	public static final int EXACT_LIMIT = 10;
 
 	/** @param leftPiece / rightPiece the exact inputs of this step (book, item, or the result of an earlier step) */
 	public record Step(int number, String left, String right, int cost, Piece leftPiece, Piece rightPiece) {}
 
-	/** @param dropped enchantment ids left out so every step fits {@link #maxStepCost}, lowest priority first dropped */
+	/** @param dropped enchantment ids left out so every step fits {@link #MAX_STEP_COST}, lowest priority first dropped */
 	public record Plan(List<Step> steps, int total, boolean approximate, List<String> dropped) {}
 
 	/** One wanted enchantment and the book that provides it. */
@@ -75,7 +70,7 @@ public final class Planner {
 	/**
 	 * @param inputs index 0 is the target item, the rest are books
 	 * @param labels display name for each input
-	 * @return the cheapest plan with every step within {@link #maxStepCost}, or null if none exists
+	 * @return the cheapest plan with every step within {@link #MAX_STEP_COST}, or null if none exists
 	 */
 	public static Plan plan(List<Piece> inputs, List<String> labels, Map<String, EnchantInfo> registry) {
 		boolean approximate = inputs.size() > EXACT_LIMIT;
@@ -84,7 +79,7 @@ public final class Planner {
 	}
 
 	/**
-	 * Plans {@code wants} (highest priority first) onto {@code target}. If no plan keeps every step within {@link #maxStepCost},
+	 * Plans {@code wants} (highest priority first) onto {@code target}. If no plan keeps every step within {@link #MAX_STEP_COST},
 	 * drops wanted enchantments from the low-priority end, one at a time, until one does.
 	 * A book shared by several wants stays in while any of its kept wants needs it.
 	 *
@@ -255,15 +250,14 @@ public final class Planner {
 		return a.stepCost < b.stepCost;
 	}
 
-	/** A step is allowed only if the game accepts it and it costs at most {@link #maxStepCost}. */
+	/** A step is allowed only if the game accepts it and it costs at most MAX_STEP_COST. */
 	private static Node merge(Node l, Node r, Map<String, EnchantInfo> registry) {
-		int budget = maxStepCost;
 		// Any valid step costs at least both prior-work penalties plus 1, so skip pairs that are over budget before pricing them.
-		if ((long) l.piece.repairCost() + r.piece.repairCost() + 1 > budget) {
+		if ((long) l.piece.repairCost() + r.piece.repairCost() + 1 > MAX_STEP_COST) {
 			return null;
 		}
 		AnvilCost.Result res = AnvilCost.combine(l.piece, r.piece, registry, false, false);
-		if (!res.valid() || res.cost() > budget) {
+		if (!res.valid() || res.cost() > MAX_STEP_COST) {
 			return null;
 		}
 		return new Node(res.result(), l.total + r.total + res.cost(), Math.max(res.cost(), Math.max(l.maxStep, r.maxStep)), l, r,

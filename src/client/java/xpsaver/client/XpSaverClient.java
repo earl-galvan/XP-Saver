@@ -9,10 +9,9 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.screens.inventory.AnvilScreen;
 import net.minecraft.client.gui.screens.inventory.EnchantmentScreen;
 import net.minecraft.resources.Identifier;
-import xpsaver.client.config.XpSaverConfig;
 
 /**
- * Client entrypoint. Hooks used (all from Fabric API 0.165.2+26.3, no mixins):
+ * Client entrypoint. Hooks used (all from Fabric API 0.161.0+26.2, no mixins):
  * ScreenEvents.AFTER_INIT / afterForeground (fabric-screen-api-v1), KeyMappingHelper.registerKeyMapping (fabric-key-mapping-api-v1),
  * ClientTickEvents.END_CLIENT_TICK (fabric-lifecycle-events-v1).
  */
@@ -21,13 +20,12 @@ public final class XpSaverClient implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
-		XpSaverConfig.load(); // config/xpsaver.json; edited in game through Mod Menu (ModMenuIntegration)
 		KeyMapping plannerKey = KeyMappingHelper.registerKeyMapping(
-				new KeyMapping("key.xpsaver.planner", InputConstants.Type.KEYBOARD, InputConstants.KEY_K, CATEGORY));
+				new KeyMapping("key.xpsaver.planner", InputConstants.Type.KEYSYM, InputConstants.KEY_K, CATEGORY));
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			while (plannerKey.consumeClick()) {
 				if (mc.player != null && mc.level != null) {
-					mc.gui.setScreen(new PlannerScreen(mc)); // 26.3 opens screens through Gui#setScreen
+					mc.gui.setScreen(new PlannerScreen(mc)); // 26.2 opens screens through Gui#setScreen
 				}
 			}
 		});
@@ -36,7 +34,7 @@ public final class XpSaverClient implements ClientModInitializer {
 		// and before the frame's deferred tooltip is drawn; afterExtract fires too late for setComponentTooltipForNextFrame.
 		ScreenEvents.AFTER_INIT.register((mc, screen, width, height) -> {
 			if (screen instanceof EnchantmentScreen enchanting) {
-				EnchantPanel.attach(enchanting);
+				ScreenEvents.afterForeground(screen).register((s, g, mouseX, mouseY, delta) -> EnchantPanel.draw(enchanting, g));
 			} else if (screen instanceof AnvilScreen anvil) {
 				ScreenEvents.afterForeground(screen).register((s, g, mouseX, mouseY, delta) -> AnvilMark.draw(anvil, g, mouseX, mouseY));
 				AnvilPlanner.attach(anvil);

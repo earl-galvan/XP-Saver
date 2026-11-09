@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Vanilla enchantment data for tests, copied from Minecraft 26.3 (identical to 26.2):
+ * Vanilla enchantment data for tests, copied from Minecraft 26.2:
  * max level and anvil cost from net.minecraft.world.item.enchantment.Enchantments#bootstrap (Enchantment.definition args),
  * exclusive sets from data/minecraft/tags/enchantment/exclusive_set/{damage,bow}.json.
  */
