@@ -28,6 +28,7 @@ import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
+import xpsaver.client.config.XpSaverConfig;
 import xpsaver.core.EnchantInfo;
 import xpsaver.core.Guide;
 import xpsaver.core.Piece;
@@ -37,10 +38,11 @@ import xpsaver.core.Upgrade;
 /**
  * Two dropdowns left of the anvil (clear of item-list mods on the right), one open at a time:
  * "Recommended enchantments" for the item in the left slot (same list as the enchanting table panel), and
- * "Cheapest order": tick enchanted books, see the cheapest order (every step within Planner.MAX_STEP_COST), and press
+ * "Cheapest order": tick enchanted books, see the cheapest order (every step within Planner.maxStepCost), and press
  * "Next step" to move that step's two inputs into the anvil. The player still takes each result, which is when XP is charged.
  * Drawn as vanilla container panels (see Panel). Long content scrolls with the mouse wheel. On narrow screens the buttons move to a
- * row above the anvil and the panel draws its text smaller rather than squeezing it.
+ * row above the anvil and the panel draws its text smaller rather than squeezing it. Which dropdowns show, their side, offsets,
+ * width and button layout come from XpSaverConfig and apply live.
  * Hooks (Fabric API 0.165.2+26.3): Screens.getWidgets, ScreenEvents.afterForeground, ScreenMouseEvents.allowMouseClick /
  * allowMouseScroll. Item moves use MultiPlayerGameMode#handleContainerInput (26.3), the same packets as clicking by hand.
  */
@@ -48,8 +50,7 @@ final class AnvilPlanner {
 	/** AnvilMenu (26.3): slots 0 and 1 are inputs, 2 is the result, 3..38 are the player's inventory and hotbar. */
 	private static final int FIRST_INVENTORY_SLOT = 3;
 	private static final int BUTTON_H = 16;
-	private static final int PANEL_WIDTH = 170;
-	/** Narrowest side column that still holds the buttons stacked; below it they go in a row above the anvil. */
+	/** Narrowest side column that still holds the buttons stacked; below it they go in a row above the anvil (button layout Auto). */
 	private static final int STACK_MIN = 100;
 	private static final String TICKED = "[✔] ";
 	private static final String UNTICKED = "[  ] ";
@@ -66,6 +67,7 @@ final class AnvilPlanner {
 	private Open open = Open.NONE;
 
 	private List<Piece> planKey = List.of(); // inputs the cached plan was made for
+	private int planBudget; // Planner.maxStepCost the cached plan was made for
 	private Planner.Plan plan;
 	private List<String> droppedLabels = List.of();
 	// Planning runs on the game's background executor so ticking books never stalls a frame; the result is picked up per frame.
@@ -99,7 +101,7 @@ final class AnvilPlanner {
 		Screens.getWidgets(screen).add(p.next);
 		p.layout();
 		p.next.visible = false;
-		ScreenEvents.afterForeground(screen).register((s, g, mouseX, mouseY, delta) -> p.draw(g));
+		ScreenEvents.afterForeground(screen).register((s, g, mouseX, mouseY, delta) -> p.draw(g, mouseX, mouseY));
 		// While an item is on the cursor, the mod's UI ignores the whole click (press and release). Letting a button take the press
 		// but hiding the release leaves the screen mid-click, and the next click on a slot is lost.
 		ScreenMouseEvents.allowMouseClick(screen).register((s, event) ->
@@ -137,29 +139,50 @@ final class AnvilPlanner {
 		}
 	}
 
+	/** The mod's buttons that are switched on in the config, top to bottom; Next step belongs to Cheapest order. */
+	private List<Button> shownButtons() {
+		XpSaverConfig cfg = XpSaverConfig.get();
+		List<Button> shown = new ArrayList<>();
+		if (cfg.recommendedDropdown) {
+			shown.add(recToggle);
+		}
+		if (cfg.cheapestOrderDropdown) {
+			shown.add(orderToggle);
+			shown.add(next);
+		}
+		return shown;
+	}
+
 	/**
-	 * Places the buttons: stacked left of the anvil window when the side column is wide enough, else in a row above the window.
-	 * Done on attach too, so they never flash at the screen corner.
+	 * Places the buttons: stacked beside the anvil window when the side column is wide enough (or the config says so), else in a
+	 * row above the window, then moved by the configured offset. Done on attach too, so they never flash at the screen corner.
 	 */
 	private void layout() {
-		int left = Panel.leftPos(screen.width);
+		XpSaverConfig cfg = XpSaverConfig.get();
+		recToggle.visible = cfg.recommendedDropdown;
+		orderToggle.visible = cfg.cheapestOrderDropdown;
+		if ((open == Open.RECOMMENDED && !cfg.recommendedDropdown) || (open == Open.ORDER && !cfg.cheapestOrderDropdown)) {
+			open = Open.NONE; // switched off in the config while open
+		}
 		int top = Panel.topPos(screen.height);
 		int room = Panel.sideRoom(screen.width);
-		stacked = room >= STACK_MIN;
+		stacked = cfg.buttonLayout == XpSaverConfig.ButtonLayout.STACKED
+				|| (cfg.buttonLayout == XpSaverConfig.ButtonLayout.AUTO && room >= STACK_MIN);
+		List<Button> shown = shownButtons();
 		if (stacked) {
-			int w = Math.min(PANEL_WIDTH, room);
-			int bx = left - Panel.GAP - w;
-			recToggle.setRectangle(w, BUTTON_H, bx, top);
-			orderToggle.setRectangle(w, BUTTON_H, bx, top + BUTTON_H + 2);
-			next.setRectangle(w, BUTTON_H, bx, top + 2 * (BUTTON_H + 2));
-		} else {
-			int total = Math.min(screen.width - 2 * Panel.GAP, 330);
-			int cell = (total - 4) / 3;
-			int bx = (screen.width - total) / 2;
-			int by = Math.max(2, top - BUTTON_H - 2);
-			recToggle.setRectangle(cell, BUTTON_H, bx, by);
-			orderToggle.setRectangle(cell, BUTTON_H, bx + cell + 2, by);
-			next.setRectangle(cell, BUTTON_H, bx + 2 * (cell + 2), by);
+			int w = Math.max(40, Math.min(cfg.panelWidth, room));
+			int bx = onScreen(Panel.sideX(screen.width, w) + cfg.offsetX, w);
+			for (int i = 0; i < shown.size(); i++) {
+				shown.get(i).setRectangle(w, BUTTON_H, bx, Math.max(0, top + cfg.offsetY + i * (BUTTON_H + 2)));
+			}
+		} else if (!shown.isEmpty()) {
+			int total = Math.min(screen.width - 2 * Panel.GAP, 110 * shown.size());
+			int cell = (total - 2 * (shown.size() - 1)) / shown.size();
+			int bx = onScreen((screen.width - total) / 2 + cfg.offsetX, total);
+			int by = Math.max(2, top - BUTTON_H - 2 + cfg.offsetY);
+			for (int i = 0; i < shown.size(); i++) {
+				shown.get(i).setRectangle(cell, BUTTON_H, bx + i * (cell + 2), by);
+			}
 		}
 		// Longest label that fits; a button scrolls text that doesn't, which is hard to read.
 		String recArrow = open == Open.RECOMMENDED ? " \u25B2" : " \u25BC";
@@ -167,6 +190,11 @@ final class AnvilPlanner {
 		recToggle.setMessage(label(recToggle, "Recommended enchantments" + recArrow, "Recommended" + recArrow, "Enchants" + recArrow));
 		orderToggle.setMessage(label(orderToggle, "Cheapest order" + orderArrow, "Cheapest" + orderArrow));
 		next.setMessage(label(next, "Next step \u25B6", "Next \u25B6"));
+	}
+
+	/** Keeps something {@code width} wide inside the screen horizontally. */
+	private int onScreen(int x, int width) {
+		return Math.max(0, Math.min(screen.width - width, x));
 	}
 
 	private Component label(Button button, String... options) {
@@ -178,7 +206,7 @@ final class AnvilPlanner {
 		return Component.literal(options[options.length - 1]);
 	}
 
-	private void draw(GuiGraphicsExtractor g) {
+	private void draw(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		layout();
 		next.visible = false;
 		panel.setRows(List.of());
@@ -188,7 +216,8 @@ final class AnvilPlanner {
 		Registry<Enchantment> registry = Enchants.registry(mc);
 		AnvilMenu menu = screen.getMenu();
 		int y = Panel.topPos(screen.height);
-		int top = stacked ? y + 2 * (BUTTON_H + 2) : y;
+		int toggles = (recToggle.visible ? 1 : 0) + (orderToggle.visible ? 1 : 0);
+		int top = stacked ? y + toggles * (BUTTON_H + 2) : y;
 		if (open == Open.ORDER) {
 			refreshPlan(menu, registry);
 			next.visible = plan != null && nextStep < plan.steps().size();
@@ -196,14 +225,14 @@ final class AnvilPlanner {
 				top += BUTTON_H + 2;
 			}
 		}
-		// End level with the bottom of the anvil window and scroll the rest: the screen corner below it is where
+		// By default end level with the bottom of the anvil window and scroll the rest: the screen corner below it is where
 		// JEI (and other mods) put their buttons, which would cover the last lines.
-		if (!panel.placeLeft(screen.width, top, Math.min(y + Panel.IMAGE_HEIGHT, screen.height - Panel.GAP), PANEL_WIDTH)) {
+		if (!panel.placeBeside(screen.width, screen.height, top, Panel.bottom(screen.height), XpSaverConfig.get().panelWidth)) {
 			return;
 		}
 		int textWidth = Panel.textWidth(panel.width());
 		panel.setRows(open == Open.RECOMMENDED ? recommendedRows(menu, registry, mc.font, textWidth) : orderRows(menu, mc.font, textWidth));
-		panel.draw(g, mc.font);
+		panel.draw(g, mc.font, mouseX, mouseY);
 	}
 
 	private List<Panel.Row> recommendedRows(AnvilMenu menu, Registry<Enchantment> registry, Font font, int textWidth) {
@@ -218,15 +247,15 @@ final class AnvilPlanner {
 			}
 		}
 		List<Panel.Row> out = new ArrayList<>();
-		lines.forEach(line -> Panel.wrap(out, font, line, textWidth, Panel.TEXT, -1));
+		lines.forEach(line -> Panel.wrap(out, font, line, textWidth, Panel.text(), -1));
 		return out;
 	}
 
 	private List<Panel.Row> orderRows(AnvilMenu menu, Font font, int textWidth) {
 		List<Panel.Row> out = new ArrayList<>();
-		Panel.wrap(out, font, Component.literal("Tick the books to use:").withStyle(ChatFormatting.GOLD), textWidth, Panel.TEXT, -1);
+		Panel.wrap(out, font, Component.literal("Tick the books to use:").withStyle(ChatFormatting.GOLD), textWidth, Panel.text(), -1);
 		if (bookSlots.isEmpty()) {
-			Panel.wrap(out, font, Component.literal("No enchanted books in your inventory.").withStyle(ChatFormatting.GRAY), textWidth, Panel.TEXT, -1);
+			Panel.wrap(out, font, Component.literal("No enchanted books in your inventory.").withStyle(ChatFormatting.GRAY), textWidth, Panel.text(), -1);
 		}
 		int widestBox = Math.max(font.width(BLOCKED), Math.max(font.width(TICKED), font.width(UNTICKED)));
 		Registry<Enchantment> registry = Enchants.registry(mc);
@@ -237,7 +266,7 @@ final class AnvilPlanner {
 			Component line = Component.literal(box + bookName(menu.getSlot(slot).getItem()));
 			// Wrap as if the box were always the widest one, so ticking never re-wraps a row and moves the rows below it.
 			int wrapWidth = textWidth - (widestBox - font.width(box));
-			Panel.wrap(out, font, line, wrapWidth, off ? Panel.MUTED : on ? Panel.GREEN : Panel.TEXT, off ? -1 : slot);
+			Panel.wrap(out, font, line, wrapWidth, off ? Panel.dimmed() : on ? Panel.green() : Panel.text(), off ? -1 : slot);
 			if (!running && targetPiece != null) {
 				Component why = effectLine(registry, effects.getOrDefault(slot, List.of()));
 				if (why != null) {
@@ -245,7 +274,7 @@ final class AnvilPlanner {
 				}
 			}
 		}
-		out.add(new Panel.Row(FormattedCharSequence.EMPTY, Panel.TEXT, -1));
+		out.add(new Panel.Row(FormattedCharSequence.EMPTY, Panel.text(), -1));
 
 		List<Component> lines = new ArrayList<>();
 		if (plan == null) {
@@ -258,7 +287,7 @@ final class AnvilPlanner {
 					: "Tick at least one book.";
 			lines.add(Component.literal(hint).withStyle(ChatFormatting.GRAY));
 		} else {
-			lines.add(Component.literal("Cheapest order (at most " + Planner.MAX_STEP_COST + " levels per step):").withStyle(ChatFormatting.GOLD));
+			lines.add(Component.literal("Cheapest order (at most " + Planner.maxStepCost + " levels per step):").withStyle(ChatFormatting.GOLD));
 			boolean finished = running && nextStep == plan.steps().size() && !menu.getSlot(AnvilMenu.INPUT_SLOT).hasItem()
 					&& !menu.getSlot(AnvilMenu.ADDITIONAL_SLOT).hasItem(); // last result taken
 			if (finished) {
@@ -267,6 +296,9 @@ final class AnvilPlanner {
 			int current = finished ? plan.steps().size() : running ? nextStep - 1 : -1; // step now in the anvil
 			for (Planner.Step s : plan.steps()) {
 				int i = s.number() - 1;
+				if (i > 0) {
+					lines.add(Component.empty()); // a blank line between steps, so each reads as its own block
+				}
 				String mark = i < current ? "\u2714 " : i == current ? "\u25B6 " : "";
 				ChatFormatting style = i < current ? ChatFormatting.DARK_GRAY : i == current ? ChatFormatting.YELLOW : ChatFormatting.WHITE;
 				lines.add(Component.literal(mark + "Step " + s.number() + ": " + s.cost() + " levels").withStyle(style));
@@ -275,7 +307,7 @@ final class AnvilPlanner {
 			}
 			lines.add(Component.literal("Total: " + plan.total() + " levels").withStyle(ChatFormatting.GREEN));
 			if (!droppedLabels.isEmpty()) {
-				lines.add(Component.literal("Left out to keep every step at or under " + Planner.MAX_STEP_COST + " levels:")
+				lines.add(Component.literal("Left out to keep every step at or under " + Planner.maxStepCost + " levels:")
 						.withStyle(ChatFormatting.RED));
 				droppedLabels.forEach(l -> lines.add(Component.literal("   " + l).withStyle(ChatFormatting.RED)));
 			}
@@ -286,7 +318,7 @@ final class AnvilPlanner {
 		if (message != null) {
 			lines.add(message);
 		}
-		lines.forEach(line -> Panel.wrap(out, font, line, textWidth, Panel.TEXT, -1));
+		lines.forEach(line -> Panel.wrap(out, font, line, textWidth, Panel.text(), -1));
 		return out;
 	}
 
@@ -318,8 +350,8 @@ final class AnvilPlanner {
 
 	/** True over the toggle buttons, the Next step button, or the open dropdown's panel. */
 	private boolean overUi(double mouseX, double mouseY) {
-		return panel.contains(mouseX, mouseY) || recToggle.isMouseOver(mouseX, mouseY) || orderToggle.isMouseOver(mouseX, mouseY)
-				|| (next.visible && next.isMouseOver(mouseX, mouseY));
+		return panel.contains(mouseX, mouseY) || (recToggle.visible && recToggle.isMouseOver(mouseX, mouseY))
+				|| (orderToggle.visible && orderToggle.isMouseOver(mouseX, mouseY)) || (next.visible && next.isMouseOver(mouseX, mouseY));
 	}
 
 	/** Takes a finished background plan, if it is still for the current item and ticked books. */
@@ -391,10 +423,11 @@ final class AnvilPlanner {
 
 		List<Piece> key = new ArrayList<>(List.of(targetPiece));
 		wants.forEach(w -> key.add(w.book()));
-		if (key.equals(planKey)) {
+		if (key.equals(planKey) && planBudget == Planner.maxStepCost) {
 			return;
 		}
 		planKey = key;
+		planBudget = Planner.maxStepCost; // a new budget from the config screen re-plans
 		plan = null;
 		planFailed = false;
 		nextStep = 0;

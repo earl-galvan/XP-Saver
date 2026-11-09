@@ -1,5 +1,6 @@
 package xpsaver.client;
 
+import com.mojang.blaze3d.platform.cursor.CursorTypes;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.client.Minecraft;
@@ -10,12 +11,13 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.util.FormattedCharSequence;
+import xpsaver.client.config.XpSaverConfig;
 
 /**
  * One framed, scrollable list of text rows in the look of a vanilla container (textures/gui/container/inventory.png, 26.3):
  * light gray face, white top-left and dark gray bottom-right bevel, black outline with cut corners, dark text without a shadow,
  * and a slot-style scrollbar. Placement adapts to the screen: on narrow screens or large GUI scales the panel draws its text
- * smaller instead of squeezing it (see {@link #scale}).
+ * smaller instead of squeezing it (see {@link #scale}). Side, offsets, sizes, spacing and colors come from {@link XpSaverConfig}.
  */
 final class Panel {
 	/** AbstractContainerScreen(menu, inventory, title) uses 176 x 166 (26.3); EnchantmentScreen and AnvilScreen keep it. */
@@ -23,24 +25,17 @@ final class Panel {
 	static final int IMAGE_HEIGHT = 166;
 	/** Space between a panel and the container window or the screen edge. */
 	static final int GAP = 4;
-	/** AbstractContainerScreen#extractLabels (26.3) draws titles in -12566464 (0xFF404040), no shadow. */
-	static final int TEXT = 0xFF404040;
-	static final int MUTED = 0xFF7F7F7F;
-	static final int GREEN = 0xFF176B17;
-	static final int RED = 0xFFA32020;
-	/** Narrowest comfortable panel; with less room the text is drawn smaller rather than wrapped into a thin strip. */
-	static final int MIN_WIDTH = 100;
-	private static final int LINE = 10;
 	private static final int PAD = 6; // 3 px frame + 3 px margin
 	private static final int SCROLLBAR = 6;
-	private static final int FACE = 0xFFC6C6C6;
-	private static final int LIGHT = 0xFFFFFFFF;
-	private static final int SHADOW = 0xFF555555;
-	private static final int OUTLINE = 0xFF000000;
-	private static final int SLOT = 0xFF8B8B8B;
-	private static final int SLOT_SHADOW = 0xFF373737;
+	private static final int LIGHT = 0xFFFFFF;
+	private static final int SHADOW = 0x555555;
+	private static final int OUTLINE = 0x000000;
+	private static final int SLOT = 0x8B8B8B;
+	private static final int SLOT_SHADOW = 0x373737;
+	/** Same as the vanilla slot highlight (white at half alpha): marks the clickable row under the mouse. */
+	private static final int HOVER = 0x80FFFFFF;
 
-	/** One line of the list; {@code tag} is for the caller (the anvil uses it for book rows), -1 for none. */
+	/** One line of the list; {@code tag} is for the caller (the anvil uses it for book rows, which are clickable), -1 for none. */
 	record Row(FormattedCharSequence text, int color, int tag) {}
 
 	private int x; // top-left of the frame, screen pixels
@@ -51,6 +46,40 @@ final class Panel {
 	private int scroll;
 	private List<Row> rows = List.of();
 
+	private static XpSaverConfig cfg() {
+		return XpSaverConfig.get();
+	}
+
+	/** Opaque ARGB for a config color (0xRRGGBB), for text. */
+	static int argb(int rgb) {
+		return 0xFF000000 | rgb;
+	}
+
+	static int text() {
+		return argb(cfg().text);
+	}
+
+	static int dimmed() {
+		return argb(cfg().dimmed);
+	}
+
+	static int green() {
+		return argb(cfg().green);
+	}
+
+	static int red() {
+		return argb(cfg().red);
+	}
+
+	/** Frame and face colors at the configured opacity (text stays opaque). */
+	private static int shade(int rgb) {
+		return (Math.round(cfg().opacity * 2.55f) << 24) | rgb;
+	}
+
+	private static int line() {
+		return cfg().lineSpacing;
+	}
+
 	/** Same formula as AbstractContainerScreen#init (26.3): (width - imageWidth) / 2. */
 	static int leftPos(int screenWidth) {
 		return (screenWidth - IMAGE_WIDTH) / 2;
@@ -60,16 +89,37 @@ final class Panel {
 		return (screenHeight - IMAGE_HEIGHT) / 2;
 	}
 
-	/** Free width left of the container window (the right side is where item-list mods such as JEI sit). */
+	static boolean onRight() {
+		return cfg().anchor == XpSaverConfig.Anchor.RIGHT;
+	}
+
+	/** Free width beside the container window on the configured side (left by default: item-list mods such as JEI sit right). */
 	static int sideRoom(int screenWidth) {
-		return leftPos(screenWidth) - 2 * GAP;
+		int left = leftPos(screenWidth);
+		return (onRight() ? screenWidth - left - IMAGE_WIDTH : left) - 2 * GAP;
+	}
+
+	/** X of something {@code width} wide placed beside the window on the configured side, before the X offset. */
+	static int sideX(int screenWidth, int width) {
+		int left = leftPos(screenWidth);
+		return onRight() ? left + IMAGE_WIDTH + GAP : left - GAP - width;
+	}
+
+	/** Bottom edge for a side panel: level with the window (clear of JEI's corner buttons) or the screen bottom. */
+	static int bottom(int screenHeight) {
+		return cfg().panelHeight == XpSaverConfig.PanelHeight.FULL_SCREEN ? screenHeight - GAP
+				: Math.min(topPos(screenHeight) + IMAGE_HEIGHT, screenHeight - GAP);
 	}
 
 	/**
-	 * Scale that gives {@code minWidth} panel pixels in {@code room} screen pixels: 1 when it fits, otherwise smaller in steps that keep
-	 * each font pixel a whole number of real pixels (sharp text), down to 1 real pixel per font pixel (as at GUI scale 1).
+	 * Scale that gives {@code minWidth} panel pixels in {@code room} screen pixels: 1 when it fits (or when text is set to never
+	 * shrink), otherwise smaller in steps that keep each font pixel a whole number of real pixels (sharp text), down to 1 real
+	 * pixel per font pixel (as at GUI scale 1).
 	 */
 	static float scale(int minWidth, int room) {
+		if (cfg().textSize == XpSaverConfig.TextSize.NEVER_SHRINK) {
+			return 1;
+		}
 		int gui = Minecraft.getInstance().getWindow().getGuiScale();
 		int k = gui;
 		while (k > 1 && room * gui < minWidth * k) {
@@ -89,17 +139,20 @@ final class Panel {
 	}
 
 	/**
-	 * Puts the panel in the column left of the container, from {@code top} down to at most {@code bottom}, up to {@code wanted} wide.
+	 * Puts the panel beside the container on the configured side, from {@code top} down to at most {@code bottom}, up to
+	 * {@code wanted} wide, then moves it by the configured X/Y offset (kept on screen).
 	 * Returns false when there is no usable room (a window only a few hundred pixels wide).
 	 */
-	boolean placeLeft(int screenWidth, int top, int bottom, int wanted) {
+	boolean placeBeside(int screenWidth, int screenHeight, int top, int bottom, int wanted) {
+		XpSaverConfig c = cfg();
 		int room = sideRoom(screenWidth);
-		scale = scale(Math.min(wanted, MIN_WIDTH), room);
-		width = Math.min(wanted, (int) (room / scale));
-		x = leftPos(screenWidth) - GAP - (int) Math.ceil(width * scale);
-		y = top;
-		maxHeight = (int) ((bottom - top) / scale);
-		return width >= 40 && maxHeight >= 3 * LINE;
+		scale = scale(Math.min(wanted, c.shrinkWidth), room);
+		width = Math.max(1, Math.min(wanted, (int) (room / scale)));
+		int screenW = (int) Math.ceil(width * scale);
+		x = Math.max(0, Math.min(screenWidth - screenW, sideX(screenWidth, screenW) + c.offsetX));
+		y = Math.max(0, top + c.offsetY);
+		maxHeight = (int) ((Math.min(bottom + c.offsetY, screenHeight - GAP) - y) / scale);
+		return width >= 40 && maxHeight >= 3 * line();
 	}
 
 	/** Centers a panel {@code width} wide on the screen (call after {@link #setRows}, which decides the height). */
@@ -124,7 +177,7 @@ final class Panel {
 	}
 
 	private int contentHeight() {
-		return rows.size() * LINE + 2 * PAD - 1;
+		return rows.size() * line() + 2 * PAD - 1;
 	}
 
 	private int height() {
@@ -140,7 +193,7 @@ final class Panel {
 		if (!contains(mouseX, mouseY)) {
 			return -1;
 		}
-		int index = (int) Math.floor(((mouseY - y) / scale - PAD + scroll) / LINE);
+		int index = (int) Math.floor(((mouseY - y) / scale - PAD + scroll) / line());
 		return index >= 0 && index < rows.size() ? rows.get(index).tag() : -1;
 	}
 
@@ -149,26 +202,37 @@ final class Panel {
 		if (!contains(mouseX, mouseY)) {
 			return false;
 		}
-		scroll -= (int) Math.round(amount * LINE * 2);
+		scroll -= (int) Math.round(amount * line() * cfg().scrollLines);
 		return true; // clamped when drawn
 	}
 
-	void draw(GuiGraphicsExtractor g, Font font) {
+	/** Draws the panel; a clickable row (tag >= 0) under the mouse gets the slot highlight and a pointing-hand cursor. */
+	void draw(GuiGraphicsExtractor g, Font font, int mouseX, int mouseY) {
 		if (rows.isEmpty()) {
 			return;
 		}
+		XpSaverConfig c = cfg();
+		int line = line();
 		int height = height();
 		int overflow = contentHeight() - height;
 		scroll = Math.max(0, Math.min(scroll, overflow));
+		int hovered = tagAt(mouseX, mouseY);
 		g.pose().pushMatrix();
 		g.pose().translate(x, y);
 		g.pose().scale(scale, scale);
-		frame(g, 0, 0, width, height);
+		if (c.frame == XpSaverConfig.Frame.INVENTORY) {
+			frame(g, 0, 0, width, height);
+		} else {
+			g.fill(0, 0, width, height, shade(c.face));
+		}
 		g.enableScissor(3, 3, width - 3, height - 3);
 		for (int i = 0; i < rows.size(); i++) {
-			int rowY = PAD + i * LINE - scroll;
-			if (rowY + LINE > 0 && rowY < height) {
-				g.text(font, rows.get(i).text(), PAD, rowY, rows.get(i).color(), false);
+			int rowY = PAD + i * line - scroll;
+			if (rowY + line > 0 && rowY < height) {
+				if (hovered >= 0 && rows.get(i).tag() == hovered) {
+					g.fill(PAD - 2, rowY - 1, PAD + textWidth(width) + 1, rowY + line - 1, HOVER);
+				}
+				g.text(font, rows.get(i).text(), PAD, rowY, rows.get(i).color(), c.textShadow);
 			}
 		}
 		g.disableScissor();
@@ -181,49 +245,56 @@ final class Panel {
 			raised(g, trackX + 1, thumbY, SCROLLBAR - 2, thumbH);
 		}
 		g.pose().popMatrix();
+		if (hovered >= 0) {
+			g.requestCursor(CursorTypes.POINTING_HAND);
+		}
 	}
 
 	/** The container window frame, pixel for pixel as inventory.png draws its edges and corners. */
 	static void frame(GuiGraphicsExtractor g, int x, int y, int w, int h) {
 		int r = x + w;
 		int b = y + h;
-		g.fill(x + 3, y + 3, r - 3, b - 3, FACE);
-		g.fill(x + 2, y + 1, r - 3, y + 3, LIGHT); // top bevel
-		g.fill(x + 1, y + 2, x + 3, b - 3, LIGHT); // left bevel
-		g.fill(x + 3, y + 3, x + 4, y + 4, LIGHT);
-		g.fill(r - 3, y + 3, r - 1, b - 2, SHADOW); // right bevel
-		g.fill(x + 3, b - 3, r - 2, b - 1, SHADOW); // bottom bevel
-		g.fill(r - 4, b - 4, r - 3, b - 3, SHADOW);
-		g.fill(r - 3, y + 2, r - 2, y + 3, FACE);
-		g.fill(x + 2, b - 3, x + 3, b - 2, FACE);
-		g.fill(x + 2, y, r - 3, y + 1, OUTLINE); // outline with cut corners
-		g.fill(x + 3, b - 1, r - 2, b, OUTLINE);
-		g.fill(x, y + 2, x + 1, b - 3, OUTLINE);
-		g.fill(r - 1, y + 3, r, b - 2, OUTLINE);
-		g.fill(x + 1, y + 1, x + 2, y + 2, OUTLINE);
-		g.fill(r - 3, y + 1, r - 2, y + 2, OUTLINE);
-		g.fill(r - 2, y + 2, r - 1, y + 3, OUTLINE);
-		g.fill(x + 1, b - 3, x + 2, b - 2, OUTLINE);
-		g.fill(x + 2, b - 2, x + 3, b - 1, OUTLINE);
-		g.fill(r - 2, b - 2, r - 1, b - 1, OUTLINE);
+		int face = shade(cfg().face);
+		int light = shade(LIGHT);
+		int shadow = shade(SHADOW);
+		int outline = shade(OUTLINE);
+		g.fill(x + 3, y + 3, r - 3, b - 3, face);
+		g.fill(x + 2, y + 1, r - 3, y + 3, light); // top bevel
+		g.fill(x + 1, y + 2, x + 3, b - 3, light); // left bevel
+		g.fill(x + 3, y + 3, x + 4, y + 4, light);
+		g.fill(r - 3, y + 3, r - 1, b - 2, shadow); // right bevel
+		g.fill(x + 3, b - 3, r - 2, b - 1, shadow); // bottom bevel
+		g.fill(r - 4, b - 4, r - 3, b - 3, shadow);
+		g.fill(r - 3, y + 2, r - 2, y + 3, face);
+		g.fill(x + 2, b - 3, x + 3, b - 2, face);
+		g.fill(x + 2, y, r - 3, y + 1, outline); // outline with cut corners
+		g.fill(x + 3, b - 1, r - 2, b, outline);
+		g.fill(x, y + 2, x + 1, b - 3, outline);
+		g.fill(r - 1, y + 3, r, b - 2, outline);
+		g.fill(x + 1, y + 1, x + 2, y + 2, outline);
+		g.fill(r - 3, y + 1, r - 2, y + 2, outline);
+		g.fill(r - 2, y + 2, r - 1, y + 3, outline);
+		g.fill(x + 1, b - 3, x + 2, b - 2, outline);
+		g.fill(x + 2, b - 2, x + 3, b - 1, outline);
+		g.fill(r - 2, b - 2, r - 1, b - 1, outline);
 	}
 
 	/** Sunken box like an inventory slot: dark top-left edge, white bottom-right edge. */
 	private static void slot(GuiGraphicsExtractor g, int x, int y, int w, int h) {
-		g.fill(x, y, x + w, y + h, SLOT);
-		g.fill(x, y, x + w - 1, y + 1, SLOT_SHADOW);
-		g.fill(x, y, x + 1, y + h - 1, SLOT_SHADOW);
-		g.fill(x + 1, y + h - 1, x + w, y + h, LIGHT);
-		g.fill(x + w - 1, y + 1, x + w, y + h, LIGHT);
+		g.fill(x, y, x + w, y + h, shade(SLOT));
+		g.fill(x, y, x + w - 1, y + 1, shade(SLOT_SHADOW));
+		g.fill(x, y, x + 1, y + h - 1, shade(SLOT_SHADOW));
+		g.fill(x + 1, y + h - 1, x + w, y + h, shade(LIGHT));
+		g.fill(x + w - 1, y + 1, x + w, y + h, shade(LIGHT));
 	}
 
 	/** Raised box like the creative inventory's scroller: white top-left edge, dark bottom-right edge. */
 	private static void raised(GuiGraphicsExtractor g, int x, int y, int w, int h) {
-		g.fill(x, y, x + w, y + h, FACE);
-		g.fill(x, y, x + w - 1, y + 1, LIGHT);
-		g.fill(x, y, x + 1, y + h - 1, LIGHT);
-		g.fill(x + 1, y + h - 1, x + w, y + h, SHADOW);
-		g.fill(x + w - 1, y + 1, x + w, y + h, SHADOW);
+		g.fill(x, y, x + w, y + h, shade(cfg().face));
+		g.fill(x, y, x + w - 1, y + 1, shade(LIGHT));
+		g.fill(x, y, x + 1, y + h - 1, shade(LIGHT));
+		g.fill(x + 1, y + h - 1, x + w, y + h, shade(SHADOW));
+		g.fill(x + w - 1, y + 1, x + w, y + h, shade(SHADOW));
 	}
 
 	/** Wraps a line to {@code width}; continuation lines get a hanging indent so a wrapped entry still reads as one. */
@@ -247,11 +318,11 @@ final class Panel {
 		int spaces = Math.max(1, Math.round(indentPx / (float) font.width(" ")));
 		FormattedCharSequence indent = FormattedCharSequence.forward(" ".repeat(spaces), Style.EMPTY);
 		for (FormattedCharSequence part : font.split(onLight(line), width - font.width(" ".repeat(spaces)))) {
-			out.add(new Row(FormattedCharSequence.composite(indent, part), TEXT, tag));
+			out.add(new Row(FormattedCharSequence.composite(indent, part), text(), tag));
 		}
 	}
 
-	/** Swaps the chat colors the mod's lines use (made for dark backgrounds) for darker ones that read on the light gray face. */
+	/** Swaps the chat colors the mod's lines use (made for dark backgrounds) for the configured ones that read on the light face. */
 	static Component onLight(Component line) {
 		MutableComponent out = Component.empty();
 		line.visit((style, text) -> {
@@ -266,14 +337,15 @@ final class Panel {
 		if (color == null) {
 			return style;
 		}
+		XpSaverConfig c = cfg();
 		return switch (color.getValue()) {
-			case 0xFFFFFF, 0xFFAA00 -> style.withColor(TEXT & 0xFFFFFF); // white and gold (headings), as vanilla titles
-			case 0xAAAAAA -> style.withColor(0x606060); // gray
-			case 0x555555 -> style.withColor(MUTED & 0xFFFFFF); // dark gray
-			case 0xFFFF55 -> style.withColor(0x8A5300); // yellow
-			case 0x55FF55, 0x00AA00 -> style.withColor(GREEN & 0xFFFFFF);
-			case 0x55FFFF -> style.withColor(0x0E6470); // aqua
-			case 0xFF5555 -> style.withColor(RED & 0xFFFFFF);
+			case 0xFFFFFF, 0xFFAA00 -> style.withColor(c.text); // white and gold (headings), as vanilla titles
+			case 0xAAAAAA -> style.withColor(c.hint); // gray: hints and enchantment names
+			case 0x555555 -> style.withColor(c.dimmed); // dark gray: done steps, blocked choices
+			case 0xFFFF55 -> style.withColor(c.amber); // yellow: the current step, "nothing on its own"
+			case 0x55FF55, 0x00AA00 -> style.withColor(c.green);
+			case 0x55FFFF -> style.withColor(c.teal); // aqua: upgrades, "pick one"
+			case 0xFF5555 -> style.withColor(c.red);
 			default -> style;
 		};
 	}

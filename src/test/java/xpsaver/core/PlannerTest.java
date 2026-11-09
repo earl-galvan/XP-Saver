@@ -109,6 +109,21 @@ class PlannerTest {
 	}
 
 	@Test
+	void followsTheBudgetSetInTheConfig() {
+		try {
+			for (int budget : new int[] {15, 39}) {
+				Planner.maxStepCost = budget;
+				Planner.Plan plan = Planner.planGuided(sword(7, Map.of()), "sword", guideSwordWants(), REGISTRY);
+				assertTrue(plan.steps().stream().allMatch(s -> s.cost() <= budget), "budget " + budget);
+			}
+			// A looser budget never makes the full plan dearer than the default's 77.
+			assertTrue(Planner.planGuided(sword(7, Map.of()), "sword", guideSwordWants(), REGISTRY).total() <= 77);
+		} finally {
+			Planner.maxStepCost = Planner.MAX_STEP_COST;
+		}
+	}
+
+	@Test
 	void dropsFromTheLowPriorityEndUntilAPlanFits() {
 		// Sword with 4 prior uses (REPAIR_COST 15): only Unbreaking, Mending and Sharpness (the guide's top three) still fit.
 		// 1. Sharpness V + Unbreaking III: 0 + 0 + 1*3 = 3; 2. that + Mending: 1 + 0 + 2*1 = 3;

@@ -9,6 +9,7 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.screens.inventory.AnvilScreen;
 import net.minecraft.client.gui.screens.inventory.EnchantmentScreen;
 import net.minecraft.resources.Identifier;
+import xpsaver.client.config.XpSaverConfig;
 
 /**
  * Client entrypoint. Hooks used (all from Fabric API 0.165.2+26.3, no mixins):
@@ -20,6 +21,7 @@ public final class XpSaverClient implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
+		XpSaverConfig.load(); // config/xpsaver.json; edited in game through Mod Menu (ModMenuIntegration)
 		KeyMapping plannerKey = KeyMappingHelper.registerKeyMapping(
 				new KeyMapping("key.xpsaver.planner", InputConstants.Type.KEYBOARD, InputConstants.KEY_K, CATEGORY));
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {

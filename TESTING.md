@@ -1,6 +1,6 @@
 # XP Saver: manual test checklist
 
-Setup (26.3 renders with OpenGL or Vulkan; any normal graphics driver works): Minecraft 26.3 with Fabric Loader 0.20.1+, Fabric API 0.165.2+26.3 and `xp-saver-1.1.0+26.3.jar` in `mods/`.
+Setup (26.3 renders with OpenGL or Vulkan; any normal graphics driver works): Minecraft 26.3 with Fabric Loader 0.20.1+, Fabric API 0.165.2+26.3 and `xp-saver-1.2.0+26.3.jar` in `mods/`.
 Create a **Survival** world with **Allow Commands: ON** and set `/difficulty peaceful`, then run:
 
 ```
@@ -83,6 +83,27 @@ Install XP Saver on your own game only. Servers and LAN hosts don't need it, and
 - [ ] The F1 table panel follows the same rules (full size where it fits, smaller on narrow screens) and scrolls with the
       mouse wheel when its list is taller than the table window.
 - [ ] The K planner is a window centered on the screen; resize it and the lines re-wrap to fit. On a short screen the wheel scrolls it.
+
+## Config screen (Mod Menu 21.0.0 for 26.3; optional)
+- [ ] Without Mod Menu the game starts normally and `config/xpsaver.json` is created with the defaults.
+- [ ] With Mod Menu: Mods → XP Saver has a config button. It opens "XP Saver Settings" in the game's own options style,
+      grouped as Features, Position and Size, Text and Readability, Look and Colors, Planner. Every control has a tooltip
+      with its default and range.
+- [ ] Set Panel Side to Right and Panel Y Offset to about 40, press Done, open an enchanting table with a sword: the panel is now
+      right of the window and lower. Open an anvil: its buttons and panel moved the same way. Nothing needed a restart.
+- [ ] Quit the game, start it again: the panel is still on the right and lower (`config/xpsaver.json` holds `"anchor": "RIGHT"`).
+- [ ] Turn off a feature (e.g. Anvil ✔/✘ Mark): it disappears at once; turn it back on: it returns.
+- [ ] Max Levels per Anvil Step 20: the Cheapest order plan re-plans with every step ≤ 20 and the header says "at most 20".
+- [ ] Type `9090` in a color box: the code turns red and nothing changes. Type `909090`: the preview shows 1.9:1 ⚠ in red and
+      the tooltip says the contrast is too low. Default colors all show 4.5:1 or more.
+- [ ] Reset to Defaults asks first; Yes puts every value back (and the file); No keeps them.
+- [ ] Hand-edit the file with a bad value (`"offsetX": 999`, `"anchor": "UP"`): on the next start they come back as 100 and Left.
+
+## Readability (defaults)
+- [ ] Every text color on the light panel has at least 4.5:1 contrast (see the ratios on the config screen).
+- [ ] Hovering a book row in Cheapest order highlights it (both lines when it wraps) and shows the pointing-hand cursor;
+      header and step rows do not highlight.
+- [ ] The steps of the cheapest order are separated by a blank line.
 
 ## Anvil dropdowns: scrolling and readable text
 - [ ] Long lines wrap onto an indented next line; no word is cut off.
