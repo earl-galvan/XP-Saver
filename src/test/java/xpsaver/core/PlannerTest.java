@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** Step prices come from AnvilCost, which ports AnvilMenu#createResult (Minecraft 26.2). */
+/** Step prices come from AnvilCost, which ports AnvilMenu#createResult (Minecraft 26.3). */
 class PlannerTest {
 	private static final List<Piece> SIX_BOOKS = List.of(
 			sword(0, Map.of()),

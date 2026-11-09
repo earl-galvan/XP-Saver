@@ -12,7 +12,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.api.Test;
 
 /**
- * Expected values are worked by hand from net.minecraft.world.inventory.AnvilMenu#createResult (Minecraft 26.2, Loom genSources):
+ * Expected values are worked by hand from net.minecraft.world.inventory.AnvilMenu#createResult (Minecraft 26.3, Loom genSources):
  * cost = left REPAIR_COST + right REPAIR_COST + sum(fee * level), fee = anvilCost, halved (min 1) when the right input is a book;
  * +1 per conflicting enchantment; result REPAIR_COST = 2 * max(left, right) + 1; "Too Expensive!" when cost >= 40.
  */
@@ -105,7 +105,7 @@ class AnvilCostTest {
 
 	@Test
 	void thirtyNineIsStillAllowed() {
-		// 31 + 3 + 5 = 39 < 40 -> the 26.2 check is cost >= 40, so 39 levels still works.
+		// 31 + 3 + 5 = 39 < 40 -> the 26.3 check is cost >= 40, so 39 levels still works.
 		AnvilCost.Result r = AnvilCost.combine(sword(priorWork(5), Map.of()), book(priorWork(2), SHARP_5), REGISTRY, false, false);
 		assertEquals(AnvilCost.Status.OK, r.status());
 		assertEquals(39, r.cost());

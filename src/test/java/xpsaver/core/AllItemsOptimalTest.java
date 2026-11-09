@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
  * where one move is any allowed anvil step. It shares only {@link AnvilCost} with the planner.
  */
 class AllItemsOptimalTest {
-	// Max level and anvil cost from net.minecraft.world.item.enchantment.Enchantments#bootstrap (26.2),
+	// Max level and anvil cost from net.minecraft.world.item.enchantment.Enchantments#bootstrap (26.3),
 	// exclusive sets from data/minecraft/tags/enchantment/exclusive_set/*.json and each enchantment's exclusiveWith.
 	private static final Set<String> ARMOR = ids("protection", "blast_protection", "fire_protection", "projectile_protection");
 	private static final Set<String> BOOTS = ids("frost_walker", "depth_strider");

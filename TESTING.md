@@ -1,6 +1,6 @@
 # XP Saver: manual test checklist
 
-Setup: Minecraft 26.2 with Fabric Loader 0.20.1+, Fabric API 0.161.0+26.2 and `xp-saver-1.0.0.jar` in `mods/`.
+Setup (26.3 renders with OpenGL or Vulkan; any normal graphics driver works): Minecraft 26.3 with Fabric Loader 0.20.1+, Fabric API 0.165.2+26.3 and `xp-saver-1.1.0+26.3.jar` in `mods/`.
 Create a **Survival** world with **Allow Commands: ON** and set `/difficulty peaceful`, then run:
 
 ```
@@ -37,7 +37,7 @@ plus books Sharpness IV, Looting III, Mending, Smite V, Unbreaking II, Sharpness
 Install XP Saver on your own game only. Servers and LAN hosts don't need it, and players without it can join the same world.
 - [ ] Single player: every section below works.
 - [ ] Open to LAN: the host and a guest who both have the mod each see their own panels, and a guest without the mod can still join.
-- [ ] Dedicated server with no mods (plain vanilla 26.2): join with the mod and repeat the anvil dropdown run below.
+- [ ] Dedicated server with no mods (plain vanilla 26.3): join with the mod and repeat the anvil dropdown run below.
       The server takes exactly the planned levels (check with `/xp query @s levels`) and the sword gets all seven enchantments.
 - [ ] Put the jar in a Fabric **server**'s `mods/` folder by mistake: the server starts and XP Saver is not in its
       "Loading N mods" list (Fabric skips client-only mods there).
@@ -57,18 +57,35 @@ Install XP Saver on your own game only. Servers and LAN hosts don't need it, and
 - [ ] Sharpness V book (left) + fresh sword (right): red ✘, "Invalid this way round. Swap the inputs: 5 levels".
 - [ ] Mending book (left) + Looting book (right): red ✘, "Cheaper order exists: swap the inputs (2 instead of 6 levels)". Swap them: green ✔ at 2 levels.
 - [ ] Too Expensive: `/give @s diamond_sword[repair_cost=31]`, then add a book with `repair_cost=7`, e.g. `/give @s enchanted_book[stored_enchantments={"minecraft:sharpness":5},repair_cost=7]`. Expect a red ✘ "Too Expensive! 43 levels (the anvil allows at most 39)", matching vanilla's "Too Expensive!".
-- [ ] Same sword with a `repair_cost=3` Sharpness V book costs 39: green ✔ (the 26.2 cutoff is 40, not 39).
+- [ ] Same sword with a `repair_cost=3` Sharpness V book costs 39: green ✔ (the 26.3 cutoff is 40, not 39).
 - [ ] Damaged sword + diamond (material repair): green ✔ at the game's cost.
 
 ## Anvil dropdown: Recommended enchantments
 - [ ] Open an anvil with a diamond sword in the **left** slot. Two buttons sit left of the anvil: **Recommended enchantments ▼**
-      on top and **Cheapest order ▼** under it (the top label shortens to "Recommended ▼" on narrow screens).
+      on top and **Cheapest order ▼** under it (labels shorten when the buttons are narrow; on narrow screens the buttons
+      sit in a row above the anvil instead, see "Look and screen sizes").
 - [ ] Click Recommended: "For: Diamond Sword", then the same groups as the enchanting-table panel (always pick, pick one).
       Opening it closes Cheapest order, and the reverse.
 - [ ] Empty left slot: "Put an item in the left slot to see its recommended enchantments." A book: "A book accepts any enchantment."
 
+## Look and screen sizes (all panels: F1 table, anvil dropdowns, K planner)
+- [ ] Every panel looks like a vanilla container window: light gray face, white top-left and dark gray bottom-right edge,
+      black outline with cut corners, dark gray text without a shadow, and a sunken scrollbar with a raised thumb.
+- [ ] Colors read on the light face: ticked books dark green, upgrades teal, warnings dark red, used-up or blocked rows gray.
+      The F2 mark is a dark green ✔ or dark red ✘ on the anvil's face.
+- [ ] Resize the window with the anvil open (or change Options → Video Settings → GUI Scale) and check each size:
+  - [ ] 1920×1080 (GUI scale 4) and 1280×720 (scale 3): the buttons are stacked left of the anvil, the panel below them, text at full size.
+  - [ ] 1024×768 (scale 3) and 1280×1024 (scale 4), narrow 4:3 and 5:4 screens: the three buttons move to a row above the
+        anvil (Recommended, Cheapest order, Next step), and the panel left of the anvil draws its text smaller but sharp.
+  - [ ] 640×480 (scale 2): same row layout; the panel text is small (like GUI scale 1) but every line fits.
+  - [ ] At every size nothing covers the anvil or the inventory, clicks on book rows tick the row under the cursor,
+        and a full 7-book run still costs exactly 49 levels.
+- [ ] The F1 table panel follows the same rules (full size where it fits, smaller on narrow screens) and scrolls with the
+      mouse wheel when its list is taller than the table window.
+- [ ] The K planner is a window centered on the screen; resize it and the lines re-wrap to fit. On a short screen the wheel scrolls it.
+
 ## Anvil dropdowns: scrolling and readable text
-- [ ] Text is full size (not shrunk). Long lines wrap onto an indented next line; no word is cut off.
+- [ ] Long lines wrap onto an indented next line; no word is cut off.
 - [ ] Ticking or unticking a long book name (Sweeping Edge III) does not move the rows below it.
 - [ ] When the list is taller than the screen, a scrollbar appears on the right; the mouse wheel over the panel scrolls it,
       and the wheel elsewhere does nothing to it. Ticking a book still hits the row under the cursor after scrolling.

@@ -16,7 +16,7 @@ import xpsaver.core.EnchantInfo;
 
 /** F2: check or cross next to the anvil output slot, with the reason as a tooltip. */
 final class AnvilMark {
-	/** AnvilMenu input slot definitions (26.2): result slot at (134, 47), 16 px wide. */
+	/** AnvilMenu input slot definitions (26.3): result slot at (134, 47), 16 px wide. */
 	private static final int MARK_X = 134 + 16 + 4;
 	private static final int MARK_Y = 47 + 4;
 
@@ -63,7 +63,7 @@ final class AnvilMark {
 
 		int x = Panel.leftPos(screen.width) + MARK_X;
 		int y = Panel.topPos(screen.height) + MARK_Y;
-		g.text(mc.font, ok ? "✔" : "✘", x, y, ok ? 0xFF55FF55 : 0xFFFF5555);
+		g.text(mc.font, ok ? "✔" : "✘", x, y, ok ? Panel.GREEN : Panel.RED, false); // dark, no shadow, like the window's own labels
 		if (mouseX >= x - 1 && mouseX < x + 9 && mouseY >= y - 1 && mouseY < y + 9) {
 			g.setComponentTooltipForNextFrame(mc.font, List.of(reason.copy().withStyle(ok ? ChatFormatting.GREEN : ChatFormatting.RED)), mouseX, mouseY);
 		}

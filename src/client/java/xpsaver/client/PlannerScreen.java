@@ -23,9 +23,15 @@ import xpsaver.core.Upgrade;
 import xpsaver.core.Piece;
 import xpsaver.core.Planner;
 
-/** F3: cheapest combine order for the held item and the inventory's books chosen by the best enchantments guide. */
+/**
+ * F3: cheapest combine order for the held item and the inventory's books chosen by the best enchantments guide, in a vanilla-style
+ * panel centered on the screen (see Panel). Lines wrap to the screen width and scroll with the mouse wheel when the screen is short.
+ */
 final class PlannerScreen extends Screen {
+	/** Widest the panel gets on large screens, so lines stay easy to read. */
+	private static final int MAX_WIDTH = 360;
 	private final List<Component> lines;
+	private final Panel panel = new Panel();
 
 	PlannerScreen(Minecraft mc) {
 		super(Component.literal("XP Saver planner"));
@@ -37,14 +43,29 @@ final class PlannerScreen extends Screen {
 		return false;
 	}
 
+	/** Runs on open and on every resize, so the panel always fits the window. */
+	@Override
+	protected void init() {
+		int widest = 0;
+		for (Component line : lines) {
+			widest = Math.max(widest, font.width(line));
+		}
+		int width = Math.min(Math.min(Panel.widthFor(widest), MAX_WIDTH), this.width - 2 * Panel.GAP);
+		List<Panel.Row> rows = new ArrayList<>();
+		lines.forEach(line -> Panel.wrap(rows, font, line, Panel.textWidth(width), Panel.TEXT, -1));
+		panel.setRows(rows);
+		panel.placeCentered(this.width, this.height, width);
+	}
+
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
 		super.extractRenderState(g, mouseX, mouseY, a);
-		int y = 20;
-		for (Component line : lines) {
-			g.text(font, line, 20, y, 0xFFFFFFFF);
-			y += 11;
-		}
+		panel.draw(g, font);
+	}
+
+	@Override
+	public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
+		return panel.scroll(x, y, scrollY) || super.mouseScrolled(x, y, scrollX, scrollY);
 	}
 
 	private static List<Component> buildLines(Minecraft mc) {
