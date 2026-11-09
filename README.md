@@ -10,7 +10,7 @@ It runs on the client only: it works in single player, on LAN worlds and on serv
 - **Anvil check**: a ✔ or ✘ next to the output slot, with a tooltip explaining why (invalid, too expensive, or cheaper if the inputs are swapped).
 - **Two panel styles**: Dark (default), a see-through dark panel with light text, or Inventory, drawn like a Minecraft inventory window. Both fit any window size or GUI scale. On narrow screens the anvil buttons move to a row above the anvil and the panel text is drawn smaller.
 - **Settings screen**: open it from Mod Menu (Mods → XP Saver → config button) to pick the panel style, move the panels, change their size, line spacing and colors, turn features off, or set the most levels one anvil step may cost. Changes apply right away and are saved to `config/xpsaver.json`.
-- **Planner key (K)**: the cheapest order for the held item using your inventory's books, chosen from the Minecraft Wiki's Best enchantments guide.
+- **Planner key (K by default)**: the cheapest order for the held item using your inventory's books, chosen from the Minecraft Wiki's Best enchantments guide. Change the key in the settings screen (Planner → Planner Key) or in Options → Controls → Key Binds → XP Saver.
 
 ## Versions
 | Minecraft | Branch |

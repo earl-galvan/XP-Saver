@@ -78,7 +78,7 @@ Install XP Saver on your own game only. Servers and LAN hosts don't need it, and
 - [ ] Entry text never runs under the icon; long names wrap instead. Clicking a book row's icon still ticks the book.
 - [ ] Both styles: the icon is drawn in the style's text color (light on Dark, dark gray on Inventory).
 
-## Look and screen sizes (all panels: F1 table, anvil dropdowns, K planner)
+## Look and screen sizes (all panels: F1 table, anvil dropdowns, planner)
 - [ ] Default (Panel Style: Dark): every panel is a see-through dark box with no frame, shadowed text and a thin scrollbar
       on the right. Headings gold, normal text and step titles white, step details gray, ticked books and the total green,
       the step in the anvil and "Step N loaded" yellow, warnings light red, done or blocked rows mid gray.
@@ -94,7 +94,7 @@ Install XP Saver on your own game only. Servers and LAN hosts don't need it, and
         and a full 7-book run still costs exactly 49 levels.
 - [ ] The F1 table panel follows the same rules (full size where it fits, smaller on narrow screens) and scrolls with the
       mouse wheel when its list is taller than the table window.
-- [ ] The K planner is a window centered on the screen; resize it and the lines re-wrap to fit. On a short screen the wheel scrolls it.
+- [ ] The planner is a window centered on the screen; resize it and the lines re-wrap to fit. On a short screen the wheel scrolls it.
 
 ## Config screen (Mod Menu 21.0.0 for 26.3; optional)
 - [ ] Without Mod Menu the game starts normally and `config/xpsaver.json` is created with the defaults.
@@ -157,7 +157,7 @@ cost formula, and the planner must never cost more than they do. `RandomizedPlan
 situations (existing enchantments, prior work, multi-enchantment, conflicting and unsupported books) and checks that every
 step uses pieces that exist, stays at or under 29 levels and adds up to the total.
 
-## F3: Planner (default key K, rebind in Options → Controls → Key Binds → XP Saver)
+## F3: Planner (default key K; change it in XP Saver settings → Planner → Planner Key, or Options → Controls → Key Binds → XP Saver)
 Books are chosen from the Minecraft Wiki "Best enchantments guide" (Sharpness over Smite, Protection IV, Depth Strider, ...).
 No anvil step in a plan may cost more than `Planner.MAX_STEP_COST` = 29 levels.
 - [ ] `/give` a fresh diamond sword plus books: Unbreaking III, Mending, Sharpness V, Sweeping Edge III, Looting III, Fire Aspect II, Knockback II, Smite V.
@@ -167,6 +167,11 @@ No anvil step in a plan may cost more than `Planner.MAX_STEP_COST` = 29 levels.
       and a red "Left out…" list naming Sweeping Edge, Looting, Fire Aspect and Knockback (the guide's lowest priorities).
 - [ ] Hold an item the guide doesn't cover (e.g. a book): "The best enchantments guide has no section for this item."
 - [ ] Rebind K to another key in Controls, and the new key opens the panel.
+- [ ] XP Saver settings → Planner → **Planner Key: K**. Click it: it shows `> K <`. Press J: it shows `Planner Key: J` and Reset
+      becomes active. Close the screen: `options.txt` has `key_key.xpsaver.planner:key.keyboard.j`, J opens the planner, K doesn't.
+- [ ] Bind it to a key the game already uses (P): the button shows `[ P ]` in yellow and its tooltip names the other bindings.
+- [ ] Esc while it shows `> K <` leaves it unbound; a mouse button can be bound too. Reset (beside it) or Reset to Defaults brings K back.
+- [ ] Options → Controls → Key Binds → XP Saver shows the same key as the settings screen, both ways.
 
 ## Log
 - [ ] `logs/latest.log` has no errors or exceptions mentioning `xpsaver`.

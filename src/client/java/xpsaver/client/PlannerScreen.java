@@ -49,7 +49,7 @@ final class PlannerScreen extends Screen {
 		for (Component line : lines) {
 			widest = Math.max(widest, font.width(line));
 		}
-		// Capped (config: K planner max width) so lines stay easy to read on large screens.
+		// Capped (config: planner max width) so lines stay easy to read on large screens.
 		int width = Math.min(Math.min(Panel.widthFor(widest), XpSaverConfig.get().plannerMaxWidth), this.width - 2 * Panel.GAP);
 		List<Panel.Row> rows = new ArrayList<>();
 		lines.forEach(line -> Panel.wrap(rows, font, line, Panel.textWidth(width), Panel.text(), -1));
