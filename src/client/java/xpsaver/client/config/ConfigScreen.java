@@ -25,15 +25,40 @@ import net.minecraft.network.chat.Component;
 /**
  * XP Saver settings, built from the same widgets as the game's own option screens (OptionsSubScreen, OptionInstance sliders and
  * cycle buttons, EditBox). Every change is applied at once (features read the config every frame) and saved to
- * config/xpsaver.json when the screen is left. Nothing needs a restart.
+ * config/xpsaver.json when the screen is left. Nothing needs a restart. The color rows belong to the selected panel style;
+ * switching style rebuilds the screen (at the same scroll position) to show that style's colors.
  */
 public final class ConfigScreen extends OptionsSubScreen {
 	private static final String KEY = "xpsaver.config.";
 	/** Below this contrast ratio, text is hard to read for many players (WCAG AA for normal text). */
 	private static final double MIN_CONTRAST = 4.5;
+	private final double initialScroll;
+	private boolean rebuild;
 
 	public ConfigScreen(Screen parent) {
+		this(parent, 0);
+	}
+
+	private ConfigScreen(Screen parent, double scroll) {
 		super(parent, Minecraft.getInstance().options, Component.translatable(KEY + "title"));
+		this.initialScroll = scroll;
+	}
+
+	@Override
+	protected void init() {
+		super.init();
+		if (list != null) {
+			list.setScrollAmount(initialScroll);
+		}
+	}
+
+	/** A style change is applied on the next tick, outside the click that made it. */
+	@Override
+	public void tick() {
+		super.tick();
+		if (rebuild && list != null) {
+			minecraft.gui.setScreen(new ConfigScreen(lastScreen, list.scrollAmount()));
+		}
 	}
 
 	@Override
@@ -89,26 +114,41 @@ public final class ConfigScreen extends OptionsSubScreen {
 				slider("line_spacing", "Height of each line in the panels. More space is easier to scan.",
 						XpSaverConfig.LINE_MIN, XpSaverConfig.LINE_MAX, 10, " px", c.lineSpacing, v -> c.lineSpacing = v),
 				slider("scroll_lines", "How many lines one turn of the mouse wheel scrolls a panel.",
-						XpSaverConfig.SCROLL_MIN, XpSaverConfig.SCROLL_MAX, 2, "", c.scrollLines, v -> c.scrollLines = v),
-				bool("text_shadow", "Adds a shadow under panel text. Off matches the game's own window labels and reads better on the "
-						+ "light panel.", false, c.textShadow, v -> c.textShadow = v));
+						XpSaverConfig.SCROLL_MIN, XpSaverConfig.SCROLL_MAX, 2, "", c.scrollLines, v -> c.scrollLines = v));
 
 		list.addHeader(Component.translatable(KEY + "look"));
+		boolean dark = c.style == XpSaverConfig.Style.DARK;
+		XpSaverConfig.Palette p = c.palette();
+		XpSaverConfig.Palette d = dark ? XpSaverConfig.Palette.dark() : XpSaverConfig.Palette.inventory();
 		list.addSmall(
-				choice("frame", "Inventory window draws the game's beveled window edge. Flat draws only the panel color.",
-						XpSaverConfig.Frame.class, XpSaverConfig.Frame.INVENTORY, c.frame, v -> c.frame = v),
-				slider("opacity", "How solid the panels are. Below 100% the world shows through, which lowers text contrast.",
-						XpSaverConfig.OPACITY_MIN, XpSaverConfig.OPACITY_MAX, 100, "%", c.opacity, v -> c.opacity = v));
-		color("face", "Panel color, behind all the text.", "C6C6C6", () -> c.faceColor, v -> c.faceColor = v);
-		color("text", "Normal text and headings.", "404040", () -> c.textColor, v -> c.textColor = v);
-		color("hint", "Hints and enchantment names.", "4C4C4C", () -> c.hintColor, v -> c.hintColor = v);
-		color("dimmed", "Steps already done and choices that are blocked (their ✔ or ✘ says which).", "525252",
-				() -> c.dimmedColor, v -> c.dimmedColor = v);
-		color("green", "Ticked books, totals, the ✔ mark and \"has it\".", "125A12", () -> c.greenColor, v -> c.greenColor = v);
-		color("red", "Warnings, books left out, the ✘ mark.", "9A1A1A", () -> c.redColor, v -> c.redColor = v);
-		color("amber", "The step in the anvil now, and books that do nothing on their own.", "6B4000",
-				() -> c.amberColor, v -> c.amberColor = v);
-		color("teal", "Upgrades (↑) and \"pick one\" groups.", "0A5562", () -> c.tealColor, v -> c.tealColor = v);
+				choice("style", "Dark: the original see-through dark panel with light text. Inventory: a light panel drawn like the "
+						+ "game's inventory window. Each style keeps its own colors below.", XpSaverConfig.Style.class,
+						XpSaverConfig.Style.DARK, c.style, v -> {
+							c.style = v;
+							rebuild = true;
+						}),
+				choice("frame", "Inventory style only. Window edge draws the game's beveled window frame; Flat draws only the "
+						+ "panel color.", XpSaverConfig.Frame.class, XpSaverConfig.Frame.BEVELED, c.frame, v -> c.frame = v));
+		list.addHeader(Component.translatable(KEY + (dark ? "colors.dark" : "colors.inventory")));
+		list.addSmall(
+				slider("opacity", "How solid the panels are. Below 100% the world shows through; the contrast ratios below already "
+						+ "count the brightest and darkest world.", XpSaverConfig.OPACITY_MIN, XpSaverConfig.OPACITY_MAX, d.opacity, "%",
+						p.opacity, v -> p.opacity = v),
+				bool("text_shadow", "Adds a shadow under panel text. On suits the dark style; off matches the game's own window labels "
+						+ "on the light one.", d.textShadow, p.textShadow, v -> p.textShadow = v));
+		color("face", "Panel color, behind all the text.", d.faceColor, () -> p.faceColor, v -> p.faceColor = v);
+		color("heading", "Headings such as \"Tick the books to use:\" and \"Cheapest order\".", d.headingColor,
+				() -> p.headingColor, v -> p.headingColor = v);
+		color("text", "Normal text.", d.textColor, () -> p.textColor, v -> p.textColor = v);
+		color("hint", "Hints, step details and enchantment names.", d.hintColor, () -> p.hintColor, v -> p.hintColor = v);
+		color("dimmed", "Steps already done and choices that are blocked (their \u2714 or \u2718 says which).", d.dimmedColor,
+				() -> p.dimmedColor, v -> p.dimmedColor = v);
+		color("green", "Ticked books, totals and \"has it\".", d.greenColor, () -> p.greenColor, v -> p.greenColor = v);
+		color("red", "Warnings and books left out. (The anvil \u2718 mark uses the Inventory style's red: it sits on the light "
+				+ "anvil window.)", d.redColor, () -> p.redColor, v -> p.redColor = v);
+		color("amber", "The step in the anvil now, and books that do nothing on their own.", d.amberColor,
+				() -> p.amberColor, v -> p.amberColor = v);
+		color("teal", "Upgrades (\u2191) and \"pick one\" groups.", d.tealColor, () -> p.tealColor, v -> p.tealColor = v);
 
 		list.addHeader(Component.translatable(KEY + "planner"));
 		list.addBig(slider("max_step_cost", "Most levels any single anvil step in a plan may cost. The anvil refuses 40 or "
@@ -205,7 +245,7 @@ public final class ConfigScreen extends OptionsSubScreen {
 
 	private static Component colorTooltip(String tip, String def, double ratio) {
 		String verdict = ratio >= MIN_CONTRAST ? "easy to read" : "too low: hard to read for many players, use " + MIN_CONTRAST + ":1 or more";
-		return Component.literal(tip + "\n\nSix hex digits, RRGGBB (a leading # is fine). Default: " + def + ".\nContrast on the panel: "
+		return Component.literal(tip + "\n\nSix hex digits, RRGGBB (a leading # is fine). Default: " + def + ".\nContrast on the panel (worst case at this opacity): "
 				+ String.format(Locale.ROOT, "%.1f", ratio) + ":1, " + verdict + ". Applies right away.");
 	}
 
@@ -225,25 +265,27 @@ public final class ConfigScreen extends OptionsSubScreen {
 		}
 
 		private int sampleColor() {
-			return face ? XpSaverConfig.get().text : Integer.parseInt(hex.get(), 16);
+			return face ? XpSaverConfig.get().palette().text : Integer.parseInt(hex.get(), 16);
 		}
 
+		/** Worst case at the style's opacity: the brightest or darkest world showing through. */
 		double ratio() {
-			return XpSaverConfig.contrast(sampleColor(), XpSaverConfig.get().face);
+			XpSaverConfig.Palette p = XpSaverConfig.get().palette();
+			return XpSaverConfig.worstContrast(sampleColor(), p.face, p.opacity);
 		}
 
 		@Override
 		protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float a) {
-			XpSaverConfig c = XpSaverConfig.get();
+			XpSaverConfig.Palette c = XpSaverConfig.get().palette();
 			int x = getX();
 			int y = getY();
 			g.fill(x, y, x + width, y + height, 0xFF000000);
 			g.fill(x + 1, y + 1, x + width - 1, y + height - 1, 0xFF000000 | c.face);
 			Minecraft mc = Minecraft.getInstance();
-			g.text(mc.font, getMessage(), x + 5, y + 6, 0xFF000000 | sampleColor(), false);
+			g.text(mc.font, getMessage(), x + 5, y + 6, 0xFF000000 | sampleColor(), c.textShadow);
 			double ratio = ratio();
 			String label = String.format(Locale.ROOT, "%.1f:1", ratio) + (ratio < MIN_CONTRAST ? " ⚠" : "");
-			g.text(mc.font, label, x + width - 5 - mc.font.width(label), y + 6, 0xFF000000 | (ratio < MIN_CONTRAST ? c.red : c.text), false);
+			g.text(mc.font, label, x + width - 5 - mc.font.width(label), y + 6, 0xFF000000 | (ratio < MIN_CONTRAST ? c.red : c.text), c.textShadow);
 		}
 
 		@Override
