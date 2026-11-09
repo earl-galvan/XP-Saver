@@ -9,6 +9,7 @@ It runs on the client only: it works in single player, on LAN worlds and on serv
 - **Cheapest order** (anvil dropdown): tick the books to use and get the order with the lowest total cost, every step at or under 29 levels. **Next step** puts each step's items into the anvil for you.
 - **Recommended enchantments** (anvil dropdown and next to the enchanting table): the best enchantments for the item, marked by what it already has.
 - **Anvil check**: a ✔ or ✘ next to the output slot, with a tooltip explaining why (invalid, too expensive, or cheaper if the inputs are swapped).
+- **Looks like the game**: every panel is drawn like a Minecraft inventory window and fits any window size or GUI scale. On narrow screens the anvil buttons move to a row above the anvil and the panel text is drawn smaller.
 - **Planner key (K)**: the cheapest order for the held item using your inventory's books, chosen from the Minecraft Wiki's Best enchantments guide.
 
 ## Requirements

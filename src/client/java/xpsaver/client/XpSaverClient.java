@@ -34,7 +34,7 @@ public final class XpSaverClient implements ClientModInitializer {
 		// and before the frame's deferred tooltip is drawn; afterExtract fires too late for setComponentTooltipForNextFrame.
 		ScreenEvents.AFTER_INIT.register((mc, screen, width, height) -> {
 			if (screen instanceof EnchantmentScreen enchanting) {
-				ScreenEvents.afterForeground(screen).register((s, g, mouseX, mouseY, delta) -> EnchantPanel.draw(enchanting, g));
+				EnchantPanel.attach(enchanting);
 			} else if (screen instanceof AnvilScreen anvil) {
 				ScreenEvents.afterForeground(screen).register((s, g, mouseX, mouseY, delta) -> AnvilMark.draw(anvil, g, mouseX, mouseY));
 				AnvilPlanner.attach(anvil);

@@ -5,7 +5,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.ChatFormatting;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.EnchantmentScreen;
 import net.minecraft.core.Holder;
@@ -21,11 +24,19 @@ import xpsaver.core.Piece;
 import xpsaver.core.Upgrade;
 import xpsaver.core.Recommender;
 
-/** F1: recommendations beside the enchanting table, and which visible offer matches them. */
+/** F1: recommendations beside the enchanting table, and which visible offer matches them, in a vanilla-style panel (see Panel). */
 final class EnchantPanel {
 	private EnchantPanel() {}
 
-	static void draw(EnchantmentScreen screen, GuiGraphicsExtractor g) {
+	/** Draws the panel every frame and lets the mouse wheel scroll it (long lists on small screens). */
+	static void attach(EnchantmentScreen screen) {
+		Panel panel = new Panel();
+		ScreenEvents.afterForeground(screen).register((s, g, mouseX, mouseY, delta) -> draw(screen, g, panel));
+		ScreenMouseEvents.allowMouseScroll(screen).register((s, mouseX, mouseY, h, v) -> !panel.scroll(mouseX, mouseY, v));
+	}
+
+	private static void draw(EnchantmentScreen screen, GuiGraphicsExtractor g, Panel panel) {
+		panel.setRows(List.of());
 		Minecraft mc = Minecraft.getInstance();
 		EnchantmentMenu menu = screen.getMenu();
 		ItemStack item = menu.getSlot(0).getItem();
@@ -37,7 +48,7 @@ final class EnchantPanel {
 		Registry<Enchantment> registry = Enchants.registry(mc);
 		Map<String, Recommender.Group> groupOf = addRecommendations(item, registry, lines);
 		if (item.is(Items.BOOK)) {
-			Panel.draw(g, mc.font, lines, screen.width, screen.height);
+			show(screen, g, panel, lines);
 			return;
 		}
 		if (groupOf.isEmpty()) {
@@ -65,7 +76,24 @@ final class EnchantPanel {
 			}
 			lines.add(line);
 		}
-		Panel.draw(g, mc.font, lines, screen.width, screen.height);
+		show(screen, g, panel, lines);
+	}
+
+	/** Left of the table, level with its window; lines wrap to the room there. */
+	private static void show(EnchantmentScreen screen, GuiGraphicsExtractor g, Panel panel, List<Component> lines) {
+		Font font = Minecraft.getInstance().font;
+		int widest = 0;
+		for (Component line : lines) {
+			widest = Math.max(widest, font.width(line));
+		}
+		int top = Panel.topPos(screen.height);
+		if (!panel.placeLeft(screen.width, top, top + Panel.IMAGE_HEIGHT, Panel.widthFor(widest))) {
+			return;
+		}
+		List<Panel.Row> rows = new ArrayList<>();
+		lines.forEach(line -> Panel.wrap(rows, font, line, Panel.textWidth(panel.width()), Panel.TEXT, -1));
+		panel.setRows(rows);
+		panel.draw(g, font);
 	}
 
 	/** One recommendation, marked by what the item already has: ✔ has it, ↑ can be upgraded, ✘ blocked; plain if it's new. */
