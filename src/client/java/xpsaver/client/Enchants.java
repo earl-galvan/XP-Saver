@@ -1,5 +1,6 @@
 package xpsaver.client;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +18,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.ItemEnchantments;
 import xpsaver.core.EnchantInfo;
+import xpsaver.core.Guide;
 import xpsaver.core.Piece;
 import xpsaver.core.Upgrade;
 import net.minecraft.network.chat.Component;
@@ -77,6 +80,61 @@ final class Enchants {
 			case CONFLICTS -> "blocked by " + name(registry, e.conflictWith());
 			case UNSUPPORTED -> "can't go on this item";
 		};
+	}
+
+	/**
+	 * True if the planner may use {@code stack} on {@code target}: an enchanted book, or another enchanted copy of the same damageable
+	 * item (AnvilMenu#createResult combines those; it repairs too).
+	 */
+	static boolean isCandidate(ItemStack stack, ItemStack target) {
+		if (stack.is(Items.ENCHANTED_BOOK)) {
+			return true;
+		}
+		return !target.isEmpty() && stack != target && ItemStack.isSameItem(stack, target) && target.isDamageableItem()
+				&& !EnchantmentHelper.getEnchantmentsForCrafting(stack).isEmpty();
+	}
+
+	/** A curse {@code candidate} would put on {@code target} (the item doesn't have it and accepts it), e.g. "Curse of Vanishing"; else null. */
+	static String curseAdded(ItemStack candidate, ItemStack target) {
+		ItemEnchantments on = EnchantmentHelper.getEnchantmentsForCrafting(target);
+		for (Object2IntMap.Entry<Holder<Enchantment>> e : EnchantmentHelper.getEnchantmentsForCrafting(candidate).entrySet()) {
+			Holder<Enchantment> h = e.getKey();
+			if (h.is(EnchantmentTags.CURSE) && on.getLevel(h) == 0 && h.value().canEnchant(target)) {
+				return Enchantment.getFullname(h, e.getIntValue()).getString();
+			}
+		}
+		return null;
+	}
+
+	/** Its enchantments as words, e.g. "Sharpness V, Mending". */
+	static String enchantList(ItemStack stack) {
+		List<String> names = new ArrayList<>();
+		for (Object2IntMap.Entry<Holder<Enchantment>> e : EnchantmentHelper.getEnchantmentsForCrafting(stack).entrySet()) {
+			names.add(Enchantment.getFullname(e.getKey(), e.getIntValue()).getString());
+		}
+		return String.join(", ", names);
+	}
+
+	/** How plans name a candidate: "Looting III book", or "Diamond Sword with Unbreaking III, Mending" for an item copy. */
+	static String label(ItemStack stack) {
+		return stack.is(Items.ENCHANTED_BOOK) ? enchantList(stack) + " book" : stack.getHoverName().getString() + " with " + enchantList(stack);
+	}
+
+	/**
+	 * Enchantments to aim for on {@code target}, highest priority first: the best enchantments guide's list for it, then, if
+	 * {@code everything}, every other enchantment it accepts (curses left out) in registry order.
+	 */
+	static List<String> wanted(ItemStack target, Registry<Enchantment> registry, boolean everything) {
+		String category = guideCategory(target);
+		List<String> out = new ArrayList<>(category == null ? List.of() : Guide.priority(category));
+		if (everything) {
+			recommendable(target, registry).forEach(h -> {
+				if (!out.contains(id(h))) {
+					out.add(id(h));
+				}
+			});
+		}
+		return out;
 	}
 
 	/** The fields AnvilMenu#createResult reads from one input (26.2). */

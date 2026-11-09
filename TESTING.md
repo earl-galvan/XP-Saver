@@ -24,9 +24,9 @@ Create a **Survival** world with **Allow Commands: ON** and set `/difficulty pea
 plus books Sharpness IV, Looting III, Mending, Smite V, Unbreaking II, Sharpness III, and `/xp set @s 100 levels`.
 - [ ] Anvil, sword in the left slot, **Recommended**: "↑ Sharpness IV → V", "✘ Smite V (blocked by Sharpness)",
       "✔ Mending (has it)", "✔ Unbreaking III (has it)"; Looting, Fire Aspect, Knockback, Sweeping Edge as plain bullets.
-- [ ] **Cheapest order**: under Sharpness IV "→ Sharpness V (now IV)"; Mending and Unbreaking II greyed `[✘]` with
-      "already on the item"; Smite V greyed with "blocked by Sharpness"; Sharpness III in yellow "item has Sharpness IV: no gain alone".
-      Clicking a greyed book does nothing.
+- [ ] **Cheapest order**: under Sharpness IV "→ Sharpness V (now IV)"; Sharpness III in yellow "item has Sharpness IV: no gain
+      alone". At the bottom, under "Won't help this item:", greyed with ✘ and the reason: Mending and Unbreaking II "already on
+      the item", Smite V "blocked by Sharpness". Clicking them does nothing.
 - [ ] Tick Sharpness IV and Looting III: 2 steps, 4 + 15 = **19 levels** (one book at a time would be 21). Run both steps:
       XP 100 → 81, sword has Sharpness V, Unbreaking III, Mending, Looting III.
 - [ ] K planner, holding `diamond_sword[enchantments={"minecraft:smite":5,"minecraft:unbreaking":2},repair_cost=1]` with books
@@ -105,7 +105,7 @@ Install XP Saver on your own game only. Servers and LAN hosts don't need it, and
       right of the window and lower. Open an anvil: its buttons and panel moved the same way. Nothing needed a restart.
 - [ ] Quit the game, start it again: the panel is still on the right and lower (`config/xpsaver.json` holds `"anchor": "RIGHT"`).
 - [ ] Turn off a feature (e.g. Anvil ✔/✘ Mark): it disappears at once; turn it back on: it returns.
-- [ ] Max Levels per Anvil Step 20: the Cheapest order plan re-plans with every step ≤ 20 and the header says "at most 20".
+- [ ] Max Levels per Anvil Step 20: the Cheapest order plan re-plans with every step ≤ 20 and the Total line says "every step ≤ 20".
 - [ ] Panel Style switches between Dark and Inventory at once; the screen stays at the same place and the color rows below
       change to that style's colors (each style keeps its own). Reset to Defaults goes back to Dark.
 - [ ] With Panel Style Inventory, type `9090` in the Text color box: the code turns red and nothing changes. Type `909090`: the
@@ -129,7 +129,8 @@ Install XP Saver on your own game only. Servers and LAN hosts don't need it, and
 
 ## Anvil dropdown: tick books, then load the cheapest order step by step
 - [ ] Open an anvil and put a fresh diamond sword in the **left** slot. Click **Cheapest order ▼** (left of the anvil).
-      The panel lists every enchanted book in your inventory with a `[ ]` box.
+      The panel lists every enchanted book in your inventory with a `[ ]` box, the most useful first (guide order, higher
+      levels first), and **Next step ▶** shows greyed out below the buttons straight away.
 - [ ] Tick Unbreaking III, Mending, Sharpness V, Sweeping Edge III, Looting III, Fire Aspect II and Knockback II (leave Smite).
       The order updates after each tick and ends at 7 steps, **Total: 49 levels**, every step ≤ 29.
 - [ ] Press **Next step ▶**. Step 1's two inputs move into the anvil and the cost matches the list (6). Shift-click the result.
@@ -146,12 +147,33 @@ Install XP Saver on your own game only. Servers and LAN hosts don't need it, and
 - [ ] After clicking any dropdown button, typing goes into the rename box (the anvil does not close on E).
 - [ ] Put an enchanted book in the left slot: the order panel says "A book is in the left slot: put the item to enchant there instead."
 - [ ] Tick books quickly one after another: the game never stutters; "Working out the cheapest order…" may flash for a moment.
+
+## 1.6.0: best books, XP check, tidier list
+Same setup as above (fresh sword, the eight books), plus two Sharpness IV books, Unbreaking II, Protection IV, a book with
+Looting III + Curse of Vanishing, `diamond_sword[enchantments={"minecraft:unbreaking":3,"minecraft:mending":1}]`, and
+`/xp set @s 30 levels`.
+- [ ] Ticking the first book doesn't move the list: Next step is already there (greyed out) and becomes active with a plan.
+- [ ] Put a Sharpness V book in the anvil's right slot by hand, then open Cheapest order: it is listed (and can be ticked).
+- [ ] **» Tick the best books for this item** ticks Unbreaking III, Mending, Sharpness V, Sweeping Edge III, Looting III,
+      Fire Aspect II and Knockback II, and the order is the K planner's: 7 steps, **49 levels**.
+- [ ] Protection IV ("can't go on this item") and the cursed book ("would add Curse of Vanishing") are under "Won't help this
+      item:" at the bottom, not tickable. The enchanted sword copy is listed and can be ticked.
+- [ ] Tick both Sharpness IV books as well: still 49 levels, plus "Not needed (cheaper without): Sharpness IV book; Sharpness IV book".
+- [ ] With 30 levels: steps 5 to 7 show ✘ in red, and "You have 30 levels: enough up to step 4. Need 19 more." With 60 levels:
+      "You have 60 levels: enough." Run every step: 60 → 11 and the sword has all seven enchantments, no curse.
+- [ ] Press Next step with fewer levels than the step costs: red "Step 1 loaded, but it costs 6 levels and you have 5."
+- [ ] Anvil ✔/✘ with 2 levels and a 4-level combine: red ✘, "Cheapest order, but it costs 4 levels and you have 2".
+- [ ] K planner with the same inventory: the same 7 steps, red "(not enough XP)" on steps you can't afford yet, the XP line,
+      and no "approximate" note (up to 11 useful books and item copies are checked exactly).
+- [ ] K planner with only two Sharpness IV books and a fresh sword: both books used, 2 steps, and the sword ends with Sharpness V (IV + IV).
 - [ ] With JEI installed, the dropdown and the JEI list don't overlap, and the dropdown ends level with the bottom of the
       anvil window, so JEI's bookmark/config buttons in the bottom-left corner never cover its last lines (scroll to see them).
 
 ## Cheapest order for every item (automated: `AllItemsOptimalTest`)
 For each item in the guide (fresh, and with 1 to 4 earlier anvil uses) the planner is compared with a separate brute-force
-search over every possible sequence of anvil steps. Both must agree on: lowest total levels, then the lowest prior-work
+search over every possible sequence of anvil steps. `SelectorTest` checks the choice of books too: for 1,500 random inventories
+(duplicates, merge chains, enchanted item copies, prior work) it must match a brute force over every subset of the books and
+every merge order. Both must agree on: lowest total levels, then the lowest prior-work
 penalty left on the finished item, then the smallest single step. The wiki's own orders are replayed through the game's
 cost formula, and the planner must never cost more than they do. `RandomizedPlannerTest` does the same for 400 random
 situations (existing enchantments, prior work, multi-enchantment, conflicting and unsupported books) and checks that every
