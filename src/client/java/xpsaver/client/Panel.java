@@ -1,6 +1,7 @@
 package xpsaver.client;
 
 import com.mojang.blaze3d.platform.cursor.CursorTypes;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.client.Minecraft;
@@ -14,10 +15,12 @@ import net.minecraft.util.FormattedCharSequence;
 import xpsaver.client.config.XpSaverConfig;
 
 /**
- * One framed, scrollable list of text rows in the look of a vanilla container (textures/gui/container/inventory.png, 26.3):
- * light gray face, white top-left and dark gray bottom-right bevel, black outline with cut corners, dark text without a shadow,
- * and a slot-style scrollbar. Placement adapts to the screen: on narrow screens or large GUI scales the panel draws its text
- * smaller instead of squeezing it (see {@link #scale}). Side, offsets, sizes, spacing and colors come from {@link XpSaverConfig}.
+ * One scrollable list of text rows in one of two styles (XpSaverConfig.Style): Dark, the default, is the original see-through
+ * dark box with light, shadowed text and a thin scrollbar; Inventory is the look of a vanilla container
+ * (textures/gui/container/inventory.png, 26.3): light gray face, white top-left and dark gray bottom-right bevel, black outline
+ * with cut corners, dark text without a shadow, and a slot-style scrollbar. Placement adapts to the screen: on narrow screens or
+ * large GUI scales the panel draws its text smaller instead of squeezing it (see {@link #scale}). Side, offsets, sizes, spacing
+ * and colors come from {@link XpSaverConfig}.
  */
 final class Panel {
 	/** AbstractContainerScreen(menu, inventory, title) uses 176 x 166 (26.3); EnchantmentScreen and AnvilScreen keep it. */
@@ -32,11 +35,29 @@ final class Panel {
 	private static final int OUTLINE = 0x000000;
 	private static final int SLOT = 0x8B8B8B;
 	private static final int SLOT_SHADOW = 0x373737;
-	/** Same as the vanilla slot highlight (white at half alpha): marks the clickable row under the mouse. */
-	private static final int HOVER = 0x80FFFFFF;
+	/** Marks the clickable row under the mouse: the vanilla slot highlight on the light style, a fainter white on the dark one. */
+	private static final int HOVER_INVENTORY = 0x80FFFFFF;
+	private static final int HOVER_DARK = 0x30FFFFFF;
+	/** Dark style scrollbar, as the original panel drew it: a thin track and a light thumb on the right edge. */
+	private static final int DARK_TRACK = 0x303030;
+	private static final int DARK_THUMB = 0xA0A0A0;
 
-	/** One line of the list; {@code tag} is for the caller (the anvil uses it for book rows, which are clickable), -1 for none. */
-	record Row(FormattedCharSequence text, int color, int tag) {}
+	/** The "!" info icon at the right end of an enchantment row: a 7 x 9 rounded box, plus 2 px between it and the text. */
+	private static final int ICON_W = 7;
+	private static final int ICON_H = 9;
+	private static final int ICON_SPACE = ICON_W + 2;
+	/** Widest a tooltip line gets before it wraps. */
+	private static final int TOOLTIP_WIDTH = 200;
+
+	/**
+	 * One line of the list; {@code tag} is for the caller (the anvil uses it for book rows, which are clickable), -1 for none.
+	 * {@code info}, when not empty, is the tooltip shown while the mouse is over the row's "!" icon.
+	 */
+	record Row(FormattedCharSequence text, int color, int tag, List<Component> info) {
+		Row(FormattedCharSequence text, int color, int tag) {
+			this(text, color, tag, List.of());
+		}
+	}
 
 	private int x; // top-left of the frame, screen pixels
 	private int y;
@@ -55,25 +76,29 @@ final class Panel {
 		return 0xFF000000 | rgb;
 	}
 
+	private static XpSaverConfig.Palette colors() {
+		return cfg().palette();
+	}
+
+	private static boolean dark() {
+		return cfg().style == XpSaverConfig.Style.DARK;
+	}
+
 	static int text() {
-		return argb(cfg().text);
+		return argb(colors().text);
 	}
 
 	static int dimmed() {
-		return argb(cfg().dimmed);
+		return argb(colors().dimmed);
 	}
 
 	static int green() {
-		return argb(cfg().green);
+		return argb(colors().green);
 	}
 
-	static int red() {
-		return argb(cfg().red);
-	}
-
-	/** Frame and face colors at the configured opacity (text stays opaque). */
+	/** Frame and face colors at the style's opacity (text stays opaque). */
 	private static int shade(int rgb) {
-		return (Math.round(cfg().opacity * 2.55f) << 24) | rgb;
+		return (Math.round(colors().opacity * 2.55f) << 24) | rgb;
 	}
 
 	private static int line() {
@@ -131,6 +156,11 @@ final class Panel {
 	/** Width left for text in a panel {@code panelWidth} wide (margins and the scrollbar taken off). */
 	static int textWidth(int panelWidth) {
 		return panelWidth - PAD - SCROLLBAR - 6;
+	}
+
+	/** Width a line takes in the panel: its text, plus the "!" icon when it has one. */
+	static int lineWidth(Font font, Component line, boolean info) {
+		return font.width(line) + (info ? ICON_SPACE : 0);
 	}
 
 	/** Panel width that fits text lines up to {@code textWidth} wide. */
@@ -217,22 +247,34 @@ final class Panel {
 		int overflow = contentHeight() - height;
 		scroll = Math.max(0, Math.min(scroll, overflow));
 		int hovered = tagAt(mouseX, mouseY);
+		// Mouse in panel pixels, for the "!" icons.
+		double px = (mouseX - x) / scale;
+		double py = (mouseY - y) / scale;
+		int iconX = PAD + textWidth(width) - ICON_W;
+		List<Component> tip = List.of();
 		g.pose().pushMatrix();
 		g.pose().translate(x, y);
 		g.pose().scale(scale, scale);
-		if (c.frame == XpSaverConfig.Frame.INVENTORY) {
+		if (!dark() && c.frame == XpSaverConfig.Frame.BEVELED) {
 			frame(g, 0, 0, width, height);
 		} else {
-			g.fill(0, 0, width, height, shade(c.face));
+			g.fill(0, 0, width, height, shade(colors().face));
 		}
 		g.enableScissor(3, 3, width - 3, height - 3);
 		for (int i = 0; i < rows.size(); i++) {
 			int rowY = PAD + i * line - scroll;
 			if (rowY + line > 0 && rowY < height) {
 				if (hovered >= 0 && rows.get(i).tag() == hovered) {
-					g.fill(PAD - 2, rowY - 1, PAD + textWidth(width) + 1, rowY + line - 1, HOVER);
+					g.fill(PAD - 2, rowY - 1, PAD + textWidth(width) + 1, rowY + line - 1, dark() ? HOVER_DARK : HOVER_INVENTORY);
 				}
-				g.text(font, rows.get(i).text(), PAD, rowY, rows.get(i).color(), c.textShadow);
+				g.text(font, rows.get(i).text(), PAD, rowY, rows.get(i).color(), colors().textShadow);
+				if (!rows.get(i).info().isEmpty()) {
+					boolean over = px >= iconX && px < iconX + ICON_W && py >= rowY - 1 && py < rowY - 1 + ICON_H && py >= 3 && py < height - 3;
+					icon(g, iconX, rowY - 1, over);
+					if (over) {
+						tip = rows.get(i).info();
+					}
+				}
 			}
 		}
 		g.disableScissor();
@@ -241,20 +283,45 @@ final class Panel {
 			int trackH = height - 8;
 			int thumbH = Math.max(8, (trackH - 2) * height / contentHeight());
 			int thumbY = 5 + (trackH - 2 - thumbH) * scroll / overflow;
-			slot(g, trackX, 4, SCROLLBAR, trackH);
-			raised(g, trackX + 1, thumbY, SCROLLBAR - 2, thumbH);
+			if (dark()) {
+				g.fill(width - 5, 4, width - 2, 4 + trackH, shade(DARK_TRACK));
+				g.fill(width - 5, thumbY, width - 2, thumbY + thumbH, argb(DARK_THUMB));
+			} else {
+				slot(g, trackX, 4, SCROLLBAR, trackH);
+				raised(g, trackX + 1, thumbY, SCROLLBAR - 2, thumbH);
+			}
 		}
 		g.pose().popMatrix();
 		if (hovered >= 0) {
 			g.requestCursor(CursorTypes.POINTING_HAND);
 		}
+		if (!tip.isEmpty()) {
+			List<FormattedCharSequence> lines = new ArrayList<>();
+			tip.forEach(l -> lines.addAll(l.getString().isEmpty() ? List.of(FormattedCharSequence.EMPTY) : font.split(l, TOOLTIP_WIDTH)));
+			g.setTooltipForNextFrame(font, lines, mouseX, mouseY);
+		}
+	}
+
+	/** The "!" info icon: a rounded box with an exclamation mark, in the text color; filled with the hover color under the mouse. */
+	private static void icon(GuiGraphicsExtractor g, int x, int y, boolean over) {
+		int ink = text();
+		if (over) {
+			g.fill(x + 1, y + 1, x + ICON_W - 1, y + ICON_H - 1, dark() ? HOVER_DARK : HOVER_INVENTORY);
+		}
+		g.fill(x + 1, y, x + ICON_W - 1, y + 1, ink); // top
+		g.fill(x + 1, y + ICON_H - 1, x + ICON_W - 1, y + ICON_H, ink); // bottom
+		g.fill(x, y + 1, x + 1, y + ICON_H - 1, ink); // left
+		g.fill(x + ICON_W - 1, y + 1, x + ICON_W, y + ICON_H - 1, ink); // right
+		int mid = x + ICON_W / 2;
+		g.fill(mid, y + 2, mid + 1, y + 5, ink); // bar
+		g.fill(mid, y + 6, mid + 1, y + 7, ink); // dot
 	}
 
 	/** The container window frame, pixel for pixel as inventory.png draws its edges and corners. */
 	static void frame(GuiGraphicsExtractor g, int x, int y, int w, int h) {
 		int r = x + w;
 		int b = y + h;
-		int face = shade(cfg().face);
+		int face = shade(colors().face);
 		int light = shade(LIGHT);
 		int shadow = shade(SHADOW);
 		int outline = shade(OUTLINE);
@@ -290,7 +357,7 @@ final class Panel {
 
 	/** Raised box like the creative inventory's scroller: white top-left edge, dark bottom-right edge. */
 	private static void raised(GuiGraphicsExtractor g, int x, int y, int w, int h) {
-		g.fill(x, y, x + w, y + h, shade(cfg().face));
+		g.fill(x, y, x + w, y + h, shade(colors().face));
 		g.fill(x, y, x + w - 1, y + 1, shade(LIGHT));
 		g.fill(x, y, x + 1, y + h - 1, shade(LIGHT));
 		g.fill(x + 1, y + h - 1, x + w, y + h, shade(SHADOW));
@@ -299,7 +366,15 @@ final class Panel {
 
 	/** Wraps a line to {@code width}; continuation lines get a hanging indent so a wrapped entry still reads as one. */
 	static void wrap(List<Row> out, Font font, Component line, int width, int color, int tag) {
-		Component light = onLight(line);
+		wrap(out, font, line, width, color, tag, List.of());
+	}
+
+	/** As above; a non-empty {@code info} puts a "!" icon on the entry's first row, showing {@code info} as a tooltip on hover. */
+	static void wrap(List<Row> out, Font font, Component line, int width, int color, int tag, List<Component> info) {
+		if (!info.isEmpty()) {
+			width -= ICON_SPACE; // the text never runs under the icon
+		}
+		Component light = recolor(line);
 		List<FormattedCharSequence> parts = font.split(light, width);
 		if (parts.size() > 1) { // only lines that really wrap give up room for the indent
 			parts = font.split(light, width - font.width("   "));
@@ -309,7 +384,7 @@ final class Panel {
 		}
 		FormattedCharSequence indent = FormattedCharSequence.forward("   ", Style.EMPTY);
 		for (int i = 0; i < parts.size(); i++) {
-			out.add(new Row(i == 0 ? parts.get(i) : FormattedCharSequence.composite(indent, parts.get(i)), color, tag));
+			out.add(new Row(i == 0 ? parts.get(i) : FormattedCharSequence.composite(indent, parts.get(i)), color, tag, i == 0 ? info : List.of()));
 		}
 	}
 
@@ -317,30 +392,31 @@ final class Panel {
 	static void indented(List<Row> out, Font font, Component line, int width, int indentPx, int tag) {
 		int spaces = Math.max(1, Math.round(indentPx / (float) font.width(" ")));
 		FormattedCharSequence indent = FormattedCharSequence.forward(" ".repeat(spaces), Style.EMPTY);
-		for (FormattedCharSequence part : font.split(onLight(line), width - font.width(" ".repeat(spaces)))) {
+		for (FormattedCharSequence part : font.split(recolor(line), width - font.width(" ".repeat(spaces)))) {
 			out.add(new Row(FormattedCharSequence.composite(indent, part), text(), tag));
 		}
 	}
 
-	/** Swaps the chat colors the mod's lines use (made for dark backgrounds) for the configured ones that read on the light face. */
-	static Component onLight(Component line) {
+	/** Swaps the chat colors the mod's lines are written in for the selected style's configured colors. */
+	static Component recolor(Component line) {
 		MutableComponent out = Component.empty();
 		line.visit((style, text) -> {
-			out.append(Component.literal(text).setStyle(onLight(style)));
+			out.append(Component.literal(text).setStyle(recolor(style)));
 			return Optional.empty();
 		}, Style.EMPTY);
 		return out;
 	}
 
-	private static Style onLight(Style style) {
+	private static Style recolor(Style style) {
 		TextColor color = style.getColor();
 		if (color == null) {
 			return style;
 		}
-		XpSaverConfig c = cfg();
+		XpSaverConfig.Palette c = colors();
 		return switch (color.getValue()) {
-			case 0xFFFFFF, 0xFFAA00 -> style.withColor(c.text); // white and gold (headings), as vanilla titles
-			case 0xAAAAAA -> style.withColor(c.hint); // gray: hints and enchantment names
+			case 0xFFFFFF -> style.withColor(c.text);
+			case 0xFFAA00 -> style.withColor(c.heading); // gold: headings
+			case 0xAAAAAA -> style.withColor(c.hint); // gray: hints, step details, enchantment names
 			case 0x555555 -> style.withColor(c.dimmed); // dark gray: done steps, blocked choices
 			case 0xFFFF55 -> style.withColor(c.amber); // yellow: the current step, "nothing on its own"
 			case 0x55FF55, 0x00AA00 -> style.withColor(c.green);

@@ -1,6 +1,6 @@
 # XP Saver: manual test checklist
 
-Setup (26.3 renders with OpenGL or Vulkan; any normal graphics driver works): Minecraft 26.3 with Fabric Loader 0.20.1+, Fabric API 0.165.2+26.3 and `xp-saver-1.2.0+26.3.jar` in `mods/`.
+Setup (26.3 renders with OpenGL or Vulkan; any normal graphics driver works): Minecraft 26.3 with Fabric Loader 0.20.1+, Fabric API 0.165.2+26.3 and `xp-saver-1.3.0+26.3.jar` in `mods/`.
 Create a **Survival** world with **Allow Commands: ON** and set `/difficulty peaceful`, then run:
 
 ```
@@ -68,11 +68,23 @@ Install XP Saver on your own game only. Servers and LAN hosts don't need it, and
       Opening it closes Cheapest order, and the reverse.
 - [ ] Empty left slot: "Put an item in the left slot to see its recommended enchantments." A book: "A book accepts any enchantment."
 
+## Enchantment info icons ("!")
+- [ ] Every enchantment entry has a small boxed "!" at the right end of its first line: anvil Recommended list, F1 table
+      Recommended list and Table offers, and the book rows in Cheapest order. Headings, hints and step lines have none.
+- [ ] Hover a "!": a tooltip with the name (gold; red for curses), a short description, "Max level: …", "Can't be combined
+      with: …" in red when it has clashes (Sharpness: Bane of Arthropods, Breach, Density, Impaling, Smite), and for
+      Mending, Frost Walker, Soul Speed, Swift Sneak, Wind Burst and the curses a line saying the table never offers it.
+- [ ] A "Pick one" line holding two enchantments (trident: Loyalty + Channeling) shows both in one tooltip, split by a blank line.
+- [ ] Entry text never runs under the icon; long names wrap instead. Clicking a book row's icon still ticks the book.
+- [ ] Both styles: the icon is drawn in the style's text color (light on Dark, dark gray on Inventory).
+
 ## Look and screen sizes (all panels: F1 table, anvil dropdowns, K planner)
-- [ ] Every panel looks like a vanilla container window: light gray face, white top-left and dark gray bottom-right edge,
-      black outline with cut corners, dark gray text without a shadow, and a sunken scrollbar with a raised thumb.
-- [ ] Colors read on the light face: ticked books dark green, upgrades teal, warnings dark red, used-up or blocked rows gray.
-      The F2 mark is a dark green ✔ or dark red ✘ on the anvil's face.
+- [ ] Default (Panel Style: Dark): every panel is a see-through dark box with no frame, shadowed text and a thin scrollbar
+      on the right. Headings gold, normal text and step titles white, step details gray, ticked books and the total green,
+      the step in the anvil and "Step N loaded" yellow, warnings light red, done or blocked rows mid gray.
+- [ ] Panel Style: Inventory: every panel looks like a vanilla container window: light gray face, white top-left and dark gray
+      bottom-right edge, black outline with cut corners, dark gray text without a shadow, and a sunken scrollbar with a raised thumb.
+- [ ] In both styles the F2 mark is a dark green ✔ or dark red ✘: it sits on the anvil's own light window.
 - [ ] Resize the window with the anvil open (or change Options → Video Settings → GUI Scale) and check each size:
   - [ ] 1920×1080 (GUI scale 4) and 1280×720 (scale 3): the buttons are stacked left of the anvil, the panel below them, text at full size.
   - [ ] 1024×768 (scale 3) and 1280×1024 (scale 4), narrow 4:3 and 5:4 screens: the three buttons move to a row above the
@@ -94,13 +106,17 @@ Install XP Saver on your own game only. Servers and LAN hosts don't need it, and
 - [ ] Quit the game, start it again: the panel is still on the right and lower (`config/xpsaver.json` holds `"anchor": "RIGHT"`).
 - [ ] Turn off a feature (e.g. Anvil ✔/✘ Mark): it disappears at once; turn it back on: it returns.
 - [ ] Max Levels per Anvil Step 20: the Cheapest order plan re-plans with every step ≤ 20 and the header says "at most 20".
-- [ ] Type `9090` in a color box: the code turns red and nothing changes. Type `909090`: the preview shows 1.9:1 ⚠ in red and
-      the tooltip says the contrast is too low. Default colors all show 4.5:1 or more.
+- [ ] Panel Style switches between Dark and Inventory at once; the screen stays at the same place and the color rows below
+      change to that style's colors (each style keeps its own). Reset to Defaults goes back to Dark.
+- [ ] With Panel Style Inventory, type `9090` in the Text color box: the code turns red and nothing changes. Type `909090`: the
+      preview shows 1.9:1 ⚠ in red and the tooltip says the contrast is too low. Default colors of both styles show 4.5:1 or more.
+- [ ] Lower Panel Opacity: the ratios drop (they count the brightest and darkest world behind a see-through panel).
 - [ ] Reset to Defaults asks first; Yes puts every value back (and the file); No keeps them.
 - [ ] Hand-edit the file with a bad value (`"offsetX": 999`, `"anchor": "UP"`): on the next start they come back as 100 and Left.
 
 ## Readability (defaults)
-- [ ] Every text color on the light panel has at least 4.5:1 contrast (see the ratios on the config screen).
+- [ ] Every default text color has at least 4.5:1 contrast on its style's panel, even with the brightest or darkest world behind
+      the 90% Dark panel (see the ratios on the config screen).
 - [ ] Hovering a book row in Cheapest order highlights it (both lines when it wraps) and shows the pointing-hand cursor;
       header and step rows do not highlight.
 - [ ] The steps of the cheapest order are separated by a blank line.

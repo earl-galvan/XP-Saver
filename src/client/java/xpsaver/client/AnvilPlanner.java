@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -238,16 +239,18 @@ final class AnvilPlanner {
 	private List<Panel.Row> recommendedRows(AnvilMenu menu, Registry<Enchantment> registry, Font font, int textWidth) {
 		ItemStack item = menu.getSlot(AnvilMenu.INPUT_SLOT).getItem();
 		List<Component> lines = new ArrayList<>();
+		Map<Component, List<String>> ids = new IdentityHashMap<>();
 		if (item.isEmpty()) {
 			lines.add(Component.literal("Put an item in the left slot to see its recommended enchantments.").withStyle(ChatFormatting.GRAY));
 		} else {
 			lines.add(Component.literal("For: ").withStyle(ChatFormatting.GOLD).append(item.getHoverName()));
-			if (EnchantPanel.addRecommendations(item, registry, lines).isEmpty() && !item.is(Items.ENCHANTED_BOOK)) {
+			if (EnchantPanel.addRecommendations(item, registry, lines, ids).isEmpty() && !item.is(Items.ENCHANTED_BOOK)) {
 				lines.add(Component.literal("This item can't be enchanted.").withStyle(ChatFormatting.GRAY));
 			}
 		}
 		List<Panel.Row> out = new ArrayList<>();
-		lines.forEach(line -> Panel.wrap(out, font, line, textWidth, Panel.text(), -1));
+		lines.forEach(line -> Panel.wrap(out, font, line, textWidth, Panel.text(), -1,
+				EnchantTips.of(registry, ids.getOrDefault(line, List.of()))));
 		return out;
 	}
 
@@ -266,7 +269,10 @@ final class AnvilPlanner {
 			Component line = Component.literal(box + bookName(menu.getSlot(slot).getItem()));
 			// Wrap as if the box were always the widest one, so ticking never re-wraps a row and moves the rows below it.
 			int wrapWidth = textWidth - (widestBox - font.width(box));
-			Panel.wrap(out, font, line, wrapWidth, off ? Panel.dimmed() : on ? Panel.green() : Panel.text(), off ? -1 : slot);
+			List<String> ids = net.minecraft.world.item.enchantment.EnchantmentHelper.getEnchantmentsForCrafting(menu.getSlot(slot).getItem())
+					.keySet().stream().map(Enchants::id).toList();
+			Panel.wrap(out, font, line, wrapWidth, off ? Panel.dimmed() : on ? Panel.green() : Panel.text(), off ? -1 : slot,
+					EnchantTips.of(registry, ids));
 			if (!running && targetPiece != null) {
 				Component why = effectLine(registry, effects.getOrDefault(slot, List.of()));
 				if (why != null) {
