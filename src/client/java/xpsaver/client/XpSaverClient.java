@@ -18,11 +18,17 @@ import xpsaver.client.config.XpSaverConfig;
  */
 public final class XpSaverClient implements ClientModInitializer {
 	private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("xpsaver", "main"));
+	private static KeyMapping plannerKey;
+
+	/** The planner's key binding (default K); rebound in Controls or the XP Saver settings screen, saved in options.txt. */
+	public static KeyMapping plannerKey() {
+		return plannerKey;
+	}
 
 	@Override
 	public void onInitializeClient() {
 		XpSaverConfig.load(); // config/xpsaver.json; edited in game through Mod Menu (ModMenuIntegration)
-		KeyMapping plannerKey = KeyMappingHelper.registerKeyMapping(
+		plannerKey = KeyMappingHelper.registerKeyMapping(
 				new KeyMapping("key.xpsaver.planner", InputConstants.Type.KEYBOARD, InputConstants.KEY_K, CATEGORY));
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			while (plannerKey.consumeClick()) {
