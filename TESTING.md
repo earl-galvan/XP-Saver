@@ -47,6 +47,8 @@ Install XP Saver on your own game only. Servers and LAN hosts don't need it, and
 - [ ] The panel lists "Pick one (taste)" with Bane of Arthropods V / Sharpness V / Smite V, then Fire Aspect II, Knockback II, Looting III, Mending, Sweeping Edge III, Unbreaking III. No curses.
 - [ ] Under "Table offers", each visible offer shows the same enchantment as the vanilla hover clue, with a green ✔ (and "(choice)" for Sharpness/Smite/Bane).
 - [ ] With a book in the slot, the panel says "A book accepts any enchantment."
+- [ ] Click an offer: once the item comes back enchanted it moves into your inventory by itself (the lapis stays), so the next
+      item can go straight in. Same for a book (it comes out as an enchanted book). With too few levels or lapis nothing happens.
 - [ ] Try a bow: Infinity and Mending appear together under "Pick one". Try a pickaxe: Fortune and Silk Touch do.
 - [ ] Try a trident: "Pick one" offers "Channeling + Loyalty III" or "Riptide III" (Loyalty and Channeling go together;
       Riptide excludes both).
@@ -133,14 +135,16 @@ Install XP Saver on your own game only. Servers and LAN hosts don't need it, and
       levels first), and **Next step ▶** shows greyed out below the buttons straight away.
 - [ ] Tick Unbreaking III, Mending, Sharpness V, Sweeping Edge III, Looting III, Fire Aspect II and Knockback II (leave Smite).
       The order updates after each tick and ends at 7 steps, **Total: 49 levels**, every step ≤ 29.
-- [ ] Press **Next step ▶**. Step 1's two inputs move into the anvil and the cost matches the list (6). Shift-click the result.
-- [ ] Repeat Next step and take each result until "Done: all 7 steps applied". Your level drops by exactly 49, and the
+- [ ] Press **Next step ▶**. Step 1's two inputs move into the anvil, the cost matches the list (6), and the result goes into
+      your inventory by itself: "Step 1 done (6 levels)." The button stays greyed out until the result is in.
+- [ ] Press Next step 6 more times (no shift-clicks) until "Done: all 7 steps applied". Your level drops by exactly 49, and the
       sword has all seven enchantments. Smite V stays in your inventory.
 - [ ] Untick a book mid-way: the plan resets and is recomputed from what is now in the anvil and inventory.
 - [ ] Press Next step while holding an item on the cursor: red "Put down the item on your cursor first."
-- [ ] Press Next step, don't take the result, press Next step again (and again): the run never gets stuck. A step whose
-      inputs are all there is loaded; once a later step needs the skipped result, the skipped step is loaded again.
-      Finishing still costs exactly the plan's total (4 books on a fresh sword: 23 levels, 100 → 77).
+- [ ] With fewer levels than a step costs, Next step loads it but takes nothing: red "Step N loaded, but it costs X levels and you
+      have Y." After `/xp add @s 30 levels`, keep pressing Next step: the run never gets stuck. A step whose inputs are all there is loaded and taken, and a skipped step is loaded again once a later one needs its result.
+- [ ] Inventory full when a result is ready: red "no room in your inventory. Take the result by hand." Nothing is lost.
+- [ ] Finishing still costs exactly the plan's total (4 books on a fresh sword: 23 levels, 100 → 77).
 - [ ] Type a new name in the rename box, then press Next step: the name resets with the new item, so no rename level is added.
 - [ ] Pick up an item on the cursor and click the open panel or the dropdown buttons: they ignore the click, the item stays
       on the cursor (not thrown), and the very next click on a slot puts it down.
