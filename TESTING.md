@@ -23,7 +23,7 @@ Create a **Survival** world with **Allow Commands: ON** and set `/difficulty pea
 ```
 plus books Sharpness IV, Looting III, Mending, Smite V, Unbreaking II, Sharpness III, and `/xp set @s 100 levels`.
 - [ ] Anvil, sword in the left slot, **Recommended**: "↑ Sharpness IV → V", "✘ Smite V (blocked by Sharpness)",
-      "✔ Mending (has it)", "✔ Unbreaking III (has it)"; Looting, Fire Aspect, Knockback, Sweeping Edge as plain bullets.
+      "✔ Mending", "✔ Unbreaking III" (green, already at max level); Looting, Fire Aspect, Knockback, Sweeping Edge as plain bullets.
 - [ ] **Cheapest order**: under Sharpness IV "→ Sharpness V (now IV)"; Sharpness III in yellow "item has Sharpness IV: no gain
       alone". At the bottom, under "Won't help this item:", greyed with ✘ and the reason: Mending and Unbreaking II "already on
       the item", Smite V "blocked by Sharpness". Clicking them does nothing.
@@ -152,6 +152,8 @@ Install XP Saver on your own game only. Servers and LAN hosts don't need it, and
 Same setup as above (fresh sword, the eight books), plus two Sharpness IV books, Unbreaking II, Protection IV, a book with
 Looting III + Curse of Vanishing, `diamond_sword[enchantments={"minecraft:unbreaking":3,"minecraft:mending":1}]`, and
 `/xp set @s 30 levels`.
+- [ ] While the steps run, a ticked book disappears from the list once a step uses it; when all steps are done, no
+      "Air with" rows or empty ticked rows are left.
 - [ ] Ticking the first book doesn't move the list: Next step is already there (greyed out) and becomes active with a plan.
 - [ ] Put a Sharpness V book in the anvil's right slot by hand, then open Cheapest order: it is listed (and can be ticked).
 - [ ] **» Tick the best books for this item** ticks Unbreaking III, Mending, Sharpness V, Sweeping Edge III, Looting III,
