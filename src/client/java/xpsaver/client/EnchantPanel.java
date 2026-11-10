@@ -109,13 +109,13 @@ final class EnchantPanel {
 		panel.draw(g, font, mouseX, mouseY);
 	}
 
-	/** One recommendation, marked by what the item already has: ✔ has it, ↑ can be upgraded, ✘ blocked; plain if it's new. */
+	/** One recommendation, marked by what the item already has: ✔ done (max level), ↑ can be upgraded, ✘ blocked; plain if it's new. */
 	private static Component fragment(EnchantInfo e, boolean bullet, Piece current, Map<String, EnchantInfo> all,
 			Registry<Enchantment> registry, Map<String, Holder<Enchantment>> holders) {
 		Upgrade.Effect effect = Upgrade.effect(current, e.id(), e.maxLevel(), all);
 		String best = Enchants.fullName(registry, e.id(), e.maxLevel());
 		return switch (effect.kind()) {
-			case MAXED -> Component.literal("\u2714 " + best + " (has it)").withStyle(ChatFormatting.GREEN);
+			case MAXED -> Component.literal("\u2714 " + best).withStyle(ChatFormatting.GREEN);
 			case RAISES -> Component.literal("\u2191 " + Enchants.fullName(registry, e.id(), effect.from()) + " \u2192 "
 					+ Component.translatable("enchantment.level." + effect.to()).getString()).withStyle(ChatFormatting.YELLOW);
 			case CONFLICTS -> Component.literal("\u2718 " + best + " (blocked by " + Enchants.name(registry, effect.conflictWith()) + ")")

@@ -279,6 +279,9 @@ final class AnvilPlanner {
 			boolean on = checked.contains(slot);
 			String box = on ? TICKED : UNTICKED;
 			ItemStack stack = menu.getSlot(slot).getItem();
+			if (stack.isEmpty()) {
+				continue; // used up by a step that has run (the list is kept while the plan runs)
+			}
 			Component line = Component.literal(box + (stack.is(Items.ENCHANTED_BOOK) ? Enchants.enchantList(stack) : Enchants.label(stack)));
 			// Wrap as if the box were always the widest one, so ticking never re-wraps a row and moves the rows below it.
 			int wrapWidth = textWidth - (widestBox - font.width(box));
