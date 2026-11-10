@@ -42,7 +42,8 @@ import xpsaver.core.Upgrade;
  * "Recommended enchantments" for the item in the left slot (same list as the enchanting table panel), and
  * "Cheapest order": tick enchanted books (and enchanted copies of the item), or let "Tick the best books" pick them; see the cheapest
  * order (Selector: which of them to use and in what order, every step within Planner.maxStepCost), whether your levels cover it, and
- * press "Next step" to move that step's two inputs into the anvil. The player still takes each result, which is when XP is charged.
+ * press "Next step" to run one step: its two inputs go into the anvil, and once the anvil shows the planned result at the planned
+ * cost, it is taken into the inventory (a shift-click, which is when XP is charged), so the next press can go straight on.
  * Drawn as vanilla container panels (see Panel). Long content scrolls with the mouse wheel. On narrow screens the buttons move to a
  * row above the anvil and the panel draws its text smaller rather than squeezing it. Which dropdowns show, their side, offsets,
  * width and button layout come from XpSaverConfig and apply live.
@@ -79,6 +80,8 @@ final class AnvilPlanner {
 	private CompletableFuture<Selector.Result> pending;
 	private List<Integer> pendingSlots = List.of();
 	private CompletableFuture<List<Integer>> pickingBest; // "Tick the best books": slots to tick, worked out in the background
+	private Planner.Step taking; // a loaded step whose result is taken as soon as the anvil shows it
+	private long takingSince;
 	private boolean planFailed;
 	private boolean running; // plan locked, steps being loaded
 	private int nextStep;
@@ -215,6 +218,7 @@ final class AnvilPlanner {
 	}
 
 	private void draw(GuiGraphicsExtractor g, int mouseX, int mouseY) {
+		takeResult();
 		layout();
 		// Shown whenever Cheapest order is open (inactive until there is a step to load), so the list below never moves under the
 		// mouse when the first tick produces a plan.
@@ -231,7 +235,7 @@ final class AnvilPlanner {
 		int top = stacked ? y + toggles * (BUTTON_H + 2) : y;
 		if (open == Open.ORDER) {
 			refreshPlan(menu, registry);
-			next.active = plan != null && nextStep < plan.steps().size();
+			next.active = plan != null && nextStep < plan.steps().size() && taking == null;
 			if (stacked && next.visible) {
 				top += BUTTON_H + 2;
 			}
@@ -325,7 +329,9 @@ final class AnvilPlanner {
 			if (finished) {
 				message = Component.literal("Done: all " + plan.steps().size() + " steps applied.").withStyle(ChatFormatting.GREEN);
 			}
-			int current = finished ? plan.steps().size() : running ? nextStep - 1 : 0; // first step not yet paid for
+			// First step not yet paid for: the loaded one while its inputs are still in the anvil, the next one once its result is taken.
+			boolean taken = !menu.getSlot(AnvilMenu.INPUT_SLOT).hasItem() && !menu.getSlot(AnvilMenu.ADDITIONAL_SLOT).hasItem();
+			int current = finished ? plan.steps().size() : running ? (taken ? nextStep : nextStep - 1) : 0;
 			List<Integer> unpaid = plan.steps().subList(Math.min(current, plan.steps().size()), plan.steps().size()).stream()
 					.map(Planner.Step::cost).toList();
 			int level = Xp.level(mc);
@@ -336,7 +342,7 @@ final class AnvilPlanner {
 					lines.add(Component.empty()); // a blank line between steps, so each reads as its own block
 				}
 				boolean done = i < current;
-				boolean loaded = running && !finished && i == current;
+				boolean loaded = running && !finished && !taken && i == current; // in the anvil now, result not taken yet
 				boolean shortOfXp = !done && i >= affordable;
 				// A mark as well as a colour: ✔ paid, ▶ in the anvil now, ✘ more levels than you will have by then (see the XP line).
 				String mark = done ? "\u2714 " : shortOfXp ? "\u2718 " : loaded ? "\u25B6 " : "";
@@ -649,10 +655,45 @@ final class AnvilPlanner {
 		running = true;
 		nextStep++;
 		int level = Xp.level(mc);
-		message = level >= 0 && level < step.cost()
-				? Component.literal("Step " + step.number() + " loaded, but it costs " + step.cost() + " levels and you have " + level + ".")
-						.withStyle(ChatFormatting.RED)
-				: Component.literal("Step " + step.number() + " loaded: take the result (" + step.cost() + " levels).").withStyle(ChatFormatting.YELLOW);
+		if (level >= 0 && level < step.cost()) {
+			message = Component.literal("Step " + step.number() + " loaded, but it costs " + step.cost() + " levels and you have " + level + ".")
+					.withStyle(ChatFormatting.RED);
+			return;
+		}
+		taking = step;
+		takingSince = Util.getMillis();
+		message = Component.literal("Step " + step.number() + ": waiting for the anvil\u2026").withStyle(ChatFormatting.YELLOW);
+	}
+
+	/**
+	 * After Next step: once the anvil shows the loaded step's result at the planned cost, shift-click it into the inventory, as a
+	 * player would. A different cost, a full inventory or no result within 3 seconds leaves it for the player, with a message.
+	 */
+	private void takeResult() {
+		if (taking == null || mc.player == null || mc.gameMode == null) {
+			return;
+		}
+		AnvilMenu menu = screen.getMenu();
+		Planner.Step step = taking;
+		if (!menu.getSlot(AnvilMenu.RESULT_SLOT).hasItem() || !menu.getCarried().isEmpty()) {
+			if (Util.getMillis() - takingSince > 3000) {
+				taking = null;
+				message = Component.literal("Step " + step.number() + ": the anvil shows no result, so nothing was taken.").withStyle(ChatFormatting.RED);
+			}
+			return;
+		}
+		taking = null;
+		if (menu.getCost() != step.cost()) {
+			message = Component.literal("Step " + step.number() + " costs " + menu.getCost() + " levels here, not the planned " + step.cost()
+					+ ", so it wasn't taken. Take it by hand if that's fine.").withStyle(ChatFormatting.RED);
+			return;
+		}
+		click(menu, AnvilMenu.RESULT_SLOT, ContainerInput.QUICK_MOVE);
+		if (menu.getSlot(AnvilMenu.RESULT_SLOT).hasItem()) {
+			message = Component.literal("Step " + step.number() + ": no room in your inventory. Take the result by hand.").withStyle(ChatFormatting.RED);
+			return;
+		}
+		message = Component.literal("Step " + step.number() + " done (" + step.cost() + " levels).").withStyle(ChatFormatting.GREEN);
 	}
 
 	/** Step indices to try: the planned next step first, then every step from the start. */
