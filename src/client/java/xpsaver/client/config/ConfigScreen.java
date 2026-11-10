@@ -153,7 +153,7 @@ public final class ConfigScreen extends OptionsSubScreen {
 		color("hint", "Hints, step details and enchantment names.", d.hintColor, () -> p.hintColor, v -> p.hintColor = v);
 		color("dimmed", "Steps already done and choices that are blocked (their \u2714 or \u2718 says which).", d.dimmedColor,
 				() -> p.dimmedColor, v -> p.dimmedColor = v);
-		color("green", "Ticked books, totals and \"has it\".", d.greenColor, () -> p.greenColor, v -> p.greenColor = v);
+		color("green", "Ticked books, totals and \u2714 done enchantments.", d.greenColor, () -> p.greenColor, v -> p.greenColor = v);
 		color("red", "Warnings and books left out. (The anvil \u2718 mark uses the Inventory style's red: it sits on the light "
 				+ "anvil window.)", d.redColor, () -> p.redColor, v -> p.redColor = v);
 		color("amber", "The step in the anvil now, and books that do nothing on their own.", d.amberColor,
