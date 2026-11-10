@@ -16,6 +16,8 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.util.Util;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.EnchantmentMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -28,6 +30,7 @@ import xpsaver.core.Recommender;
 
 /**
  * F1: recommendations beside the enchanting table, and which visible offer matches them, in a vanilla-style panel (see Panel).
+ * Picking an offer also moves the enchanted item into the inventory once it comes back (takeEnchanted).
  * Whether it shows, and whether it lists the table's offers, come from XpSaverConfig and apply live.
  */
 final class EnchantPanel {
@@ -36,8 +39,59 @@ final class EnchantPanel {
 	/** Draws the panel every frame and lets the mouse wheel scroll it (long lists on small screens). */
 	static void attach(EnchantmentScreen screen) {
 		Panel panel = new Panel();
-		ScreenEvents.afterForeground(screen).register((s, g, mouseX, mouseY, delta) -> draw(screen, g, panel, mouseX, mouseY));
+		long[] waiting = {0}; // when an enchantment was picked; 0 = not waiting
+		ScreenEvents.afterForeground(screen).register((s, g, mouseX, mouseY, delta) -> {
+			takeEnchanted(screen, waiting);
+			draw(screen, g, panel, mouseX, mouseY);
+		});
 		ScreenMouseEvents.allowMouseScroll(screen).register((s, mouseX, mouseY, h, v) -> !panel.scroll(mouseX, mouseY, v));
+		ScreenMouseEvents.afterMouseClick(screen).register((s, event, consumed) -> {
+			if (consumed && pickedOffer(screen, event.x(), event.y())) {
+				waiting[0] = Util.getMillis();
+			}
+			return consumed;
+		});
+	}
+
+	/**
+	 * True if (x, y) is on one of the three offers, as EnchantmentScreen#mouseClicked (26.2) lays them out, and that offer could be
+	 * taken: an unenchanted item in the slot and a cost shown.
+	 */
+	private static boolean pickedOffer(EnchantmentScreen screen, double x, double y) {
+		EnchantmentMenu menu = screen.getMenu();
+		ItemStack item = menu.getSlot(0).getItem();
+		if (item.isEmpty() || item.isEnchanted() || item.is(Items.ENCHANTED_BOOK)) {
+			return false;
+		}
+		int xo = (screen.width - Panel.IMAGE_WIDTH) / 2;
+		int yo = (screen.height - Panel.IMAGE_HEIGHT) / 2;
+		for (int i = 0; i < 3; i++) {
+			double xx = x - (xo + 60);
+			double yy = y - (yo + 14 + 19 * i);
+			if (xx >= 0 && yy >= 0 && xx < 108 && yy < 19 && menu.costs[i] > 0) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * After an offer is picked: once the server sends the item back enchanted, shift-click it into the inventory, as a player would,
+	 * so the next item can go straight in. Gives up after 3 seconds (the server refused, e.g. not enough lapis or levels).
+	 */
+	private static void takeEnchanted(EnchantmentScreen screen, long[] waiting) {
+		Minecraft mc = Minecraft.getInstance();
+		if (waiting[0] == 0 || mc.player == null || mc.gameMode == null) {
+			return;
+		}
+		EnchantmentMenu menu = screen.getMenu();
+		ItemStack item = menu.getSlot(0).getItem();
+		if (!item.isEmpty() && (item.isEnchanted() || item.is(Items.ENCHANTED_BOOK)) && menu.getCarried().isEmpty()) {
+			waiting[0] = 0;
+			mc.gameMode.handleContainerInput(menu.containerId, 0, 0, ContainerInput.QUICK_MOVE, mc.player);
+		} else if (Util.getMillis() - waiting[0] > 3000) {
+			waiting[0] = 0;
+		}
 	}
 
 	private static void draw(EnchantmentScreen screen, GuiGraphicsExtractor g, Panel panel, int mouseX, int mouseY) {
