@@ -179,7 +179,15 @@ Looting III + Curse of Vanishing, `diamond_sword[enchantments={"minecraft:unbrea
 For each item in the guide (fresh, and with 1 to 4 earlier anvil uses) the planner is compared with a separate brute-force
 search over every possible sequence of anvil steps. `SelectorTest` checks the choice of books too: for 1,500 random inventories
 (duplicates, merge chains, enchanted item copies, prior work) it must match a brute force over every subset of the books and
-every merge order. Both must agree on: lowest total levels, then the lowest prior-work
+every merge order. Orders with the same levels are ranked by XP points (the experience each step costs if earned from level 0
+just before it), as enchantmenttable.com's calculator does; the brute force checks that too.
+`SiteComparisonTest` holds the site's worked orders (14 builds, 26.3) and its totals for used items: the planner reaches the
+same levels everywhere, with the same or fewer XP points (boots 1,246 vs 1,250; trident 473 vs 475) and no bigger biggest step.
+
+## 1.7.1: ties go to the fewest XP points (enchantmenttable.com)
+- [ ] K planner, fresh shears with Efficiency V, Unbreaking III and Mending books: 3 steps of 5, 4 and 5 levels (14 in all), each
+      book straight onto the shears, as on enchantmenttable.com (before 1.7.1: 5, 2 and 7).
+- [ ] Fresh sword with the seven guide books: 49 levels in 7 steps, biggest step 14, the same as the site's sword order. Both must agree on: lowest total levels, then the lowest prior-work
 penalty left on the finished item, then the smallest single step. The wiki's own orders are replayed through the game's
 cost formula, and the planner must never cost more than they do. `RandomizedPlannerTest` does the same for 400 random
 situations (existing enchantments, prior work, multi-enchantment, conflicting and unsupported books) and checks that every

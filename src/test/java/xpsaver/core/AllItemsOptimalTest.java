@@ -134,7 +134,7 @@ class AllItemsOptimalTest {
 			assertNotNull(plan, category);
 			int[] referee = referee(inputs);
 			assertEquals(List.of(referee[0], referee[1], referee[2]), List.of(score(plan)[0], score(plan)[1], score(plan)[2]),
-					category + ": {total, final prior work, biggest step} is not the best");
+					category + ": {total, XP points, final prior work} is not the best");
 			String wiki = "-";
 			if (WIKI_ORDER.containsKey(category)) {
 				List<Integer> real = replay(category, WIKI_ORDER.get(category));
@@ -144,7 +144,7 @@ class AllItemsOptimalTest {
 				wiki = realTotal + (real.equals(WIKI_PRINTED.get(category)) ? "" : " (wiki prints " + printed + ": "
 						+ WIKI_PRINTED.get(category) + ", formula gives " + real + ")");
 			}
-			report.append(String.format("%-12s %7d %7d %8d %8d  %s  %s%n", category, plan.total(), referee[0], score(plan)[1], score(plan)[2],
+			report.append(String.format("%-12s %7d %7d %8d %8d  %s  %s%n", category, plan.total(), referee[0], score(plan)[2], score(plan)[3],
 					plan.steps().stream().map(Planner.Step::cost).toList(), wiki));
 		}
 		System.out.print(report);
@@ -184,7 +184,7 @@ class AllItemsOptimalTest {
 					assertNotNull(plan, what);
 					int[] got = score(plan);
 					assertEquals(List.of(referee[0], referee[1], referee[2]), List.of(got[0], got[1], got[2]),
-							what + ": {total, final prior work, biggest step} is not the best");
+							what + ": {total, XP points, final prior work} is not the best");
 				}
 			}
 		}
@@ -214,21 +214,21 @@ class AllItemsOptimalTest {
 
 	/**
 	 * Best result over every sequence of allowed anvil steps (each at most MAX_STEP_COST) that ends in one piece, as
-	 * {total, prior work of the finished item, biggest step}, compared in that order; null if no sequence fits.
-	 * Dijkstra on (total, biggest step), both of which only grow along a sequence; every finished state with the lowest total
-	 * is collected before the prior-work tie-break.
+	 * {total, XP points, prior work of the finished item, biggest step}, compared in that order; null if no sequence fits.
+	 * Dijkstra on (total, XP points, biggest step), which only grow along a sequence; every finished state with the lowest total
+	 * and XP points is collected before the prior-work tie-break.
 	 */
 	static int[] referee(List<Piece> inputs) {
 		Map<String, int[]> dist = new HashMap<>();
 		PriorityQueue<Object[]> queue = new PriorityQueue<>((a, b) -> compare((int[]) a[0], (int[]) b[0]));
-		queue.add(new Object[] {new int[] {0, 0}, inputs});
+		queue.add(new Object[] {new int[] {0, 0, 0}, inputs});
 		int[] best = null;
 		while (!queue.isEmpty()) {
 			Object[] top = queue.poll();
 			int[] cost = (int[]) top[0];
 			@SuppressWarnings("unchecked")
 			List<Piece> pool = (List<Piece>) top[1];
-			if (best != null && cost[0] > best[0]) {
+			if (best != null && (cost[0] > best[0] || (cost[0] == best[0] && cost[1] > best[1]))) {
 				break;
 			}
 			int[] known = dist.get(key(pool));
@@ -236,8 +236,8 @@ class AllItemsOptimalTest {
 				continue;
 			}
 			if (pool.size() == 1) {
-				int[] done = {cost[0], pool.get(0).repairCost(), cost[1]};
-				if (best == null || done[1] < best[1] || (done[1] == best[1] && done[2] < best[2])) {
+				int[] done = {cost[0], cost[1], pool.get(0).repairCost(), cost[2]};
+				if (best == null || done[2] < best[2] || (done[2] == best[2] && done[3] < best[3])) {
 					best = done;
 				}
 				continue;
@@ -255,7 +255,7 @@ class AllItemsOptimalTest {
 					next.remove(Math.max(i, j));
 					next.remove(Math.min(i, j));
 					next.add(r.result());
-					int[] c = {cost[0] + r.cost(), Math.max(cost[1], r.cost())};
+					int[] c = {cost[0] + r.cost(), cost[1] + Planner.xpPoints(r.cost()), Math.max(cost[2], r.cost())};
 					String k = key(next);
 					int[] old = dist.get(k);
 					if (old == null || compare(c, old) < 0) {
@@ -269,14 +269,20 @@ class AllItemsOptimalTest {
 	}
 
 	private static int compare(int[] a, int[] b) {
-		return a[0] != b[0] ? Integer.compare(a[0], b[0]) : Integer.compare(a[1], b[1]);
+		for (int i = 0; i < 3; i++) {
+			if (a[i] != b[i]) {
+				return Integer.compare(a[i], b[i]);
+			}
+		}
+		return 0;
 	}
 
-	/** {total, prior work of the finished item, biggest step} of a plan. */
+	/** {total, XP points, prior work of the finished item, biggest step} of a plan. */
 	static int[] score(Planner.Plan plan) {
 		Planner.Step last = plan.steps().get(plan.steps().size() - 1);
 		int finalRepairCost = AnvilCost.combine(last.leftPiece(), last.rightPiece(), REGISTRY, false, false).result().repairCost();
-		return new int[] {plan.total(), finalRepairCost, plan.steps().stream().mapToInt(Planner.Step::cost).max().orElseThrow()};
+		return new int[] {plan.total(), plan.steps().stream().mapToInt(s -> Planner.xpPoints(s.cost())).sum(), finalRepairCost,
+				plan.steps().stream().mapToInt(Planner.Step::cost).max().orElseThrow()};
 	}
 
 	private static String key(List<Piece> pool) {
