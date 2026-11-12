@@ -121,16 +121,19 @@ class SelectorTest {
 			if (r.goals().isEmpty()) {
 				assertTrue(r.plan().steps().isEmpty(), what);
 				if (!r.dropped().isEmpty()) {
-					assertEquals(Integer.MAX_VALUE, referee(item, candidates, r.dropped().subList(0, 1)), what);
+					assertEquals(Long.MAX_VALUE, referee(item, candidates, r.dropped().subList(0, 1)), what);
 				}
 				continue;
 			}
 			replay(r, item, candidates, what);
-			assertEquals(referee(item, candidates, r.goals()), r.plan().total(), what);
+			long best = referee(item, candidates, r.goals());
+			int xp = r.plan().steps().stream().mapToInt(s -> Planner.xpPoints(s.cost())).sum();
+			assertEquals(best / XP_SCALE, r.plan().total(), what);
+			assertEquals(best % XP_SCALE, xp, what + ": fewest XP points among the cheapest orders");
 			if (!r.dropped().isEmpty()) {
 				List<Selector.Goal> more = new ArrayList<>(r.goals());
 				more.add(r.dropped().get(0));
-				assertEquals(Integer.MAX_VALUE, referee(item, candidates, more), what + ": the next goal was droppable only if it can't fit");
+				assertEquals(Long.MAX_VALUE, referee(item, candidates, more), what + ": the next goal was droppable only if it can't fit");
 			}
 			checked++;
 		}
@@ -203,9 +206,14 @@ class SelectorTest {
 		}
 	}
 
-	/** Cheapest total over every subset of candidates and every merge order whose finished item reaches the goals; MAX_VALUE if none. */
-	private static int referee(Piece item, List<Piece> candidates, List<Selector.Goal> goals) {
-		int best = Integer.MAX_VALUE;
+	private static final long XP_SCALE = 1_000_000_000L;
+
+	/**
+	 * Cheapest order over every subset of candidates and every merge order whose finished item reaches the goals, as
+	 * total * XP_SCALE + XP points (fewest levels, then fewest XP points); Long.MAX_VALUE if none.
+	 */
+	private static long referee(Piece item, List<Piece> candidates, List<Selector.Goal> goals) {
+		long best = Long.MAX_VALUE;
 		for (int mask = 0; mask < (1 << candidates.size()); mask++) {
 			List<Piece> pool = new ArrayList<>(List.of(item));
 			List<Boolean> target = new ArrayList<>(List.of(true));
@@ -223,11 +231,11 @@ class SelectorTest {
 		return best;
 	}
 
-	private static int search(List<Piece> pool, List<Boolean> target, List<Selector.Goal> goals, Map<String, Integer> memo) {
+	private static long search(List<Piece> pool, List<Boolean> target, List<Selector.Goal> goals, Map<String, Long> memo) {
 		if (pool.size() == 1) {
 			for (Selector.Goal g : goals) {
 				if (pool.get(0).enchants().getOrDefault(g.id(), 0) < g.level()) {
-					return Integer.MAX_VALUE;
+					return Long.MAX_VALUE;
 				}
 			}
 			return 0;
@@ -239,11 +247,11 @@ class SelectorTest {
 		}
 		parts.sort(null);
 		String key = String.join("|", parts);
-		Integer known = memo.get(key);
+		Long known = memo.get(key);
 		if (known != null) {
 			return known;
 		}
-		int best = Integer.MAX_VALUE;
+		long best = Long.MAX_VALUE;
 		for (int i = 0; i < pool.size(); i++) {
 			for (int j = 0; j < pool.size(); j++) {
 				if (i == j || target.get(j)) {
@@ -262,9 +270,9 @@ class SelectorTest {
 				nextTarget.remove(Math.min(i, j));
 				next.add(res.result());
 				nextTarget.add(t);
-				int rest = search(next, nextTarget, goals, memo);
-				if (rest != Integer.MAX_VALUE) {
-					best = Math.min(best, res.cost() + rest);
+				long rest = search(next, nextTarget, goals, memo);
+				if (rest != Long.MAX_VALUE) {
+					best = Math.min(best, res.cost() * XP_SCALE + Planner.xpPoints(res.cost()) + rest);
 				}
 			}
 		}

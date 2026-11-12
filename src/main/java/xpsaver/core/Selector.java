@@ -21,8 +21,8 @@ import java.util.Set;
  * serve a goal a plain one-enchantment book already covers.</li>
  * <li><b>Exact search</b> (Planner.exactTable) over every subset of the useful candidates: the cheapest plan whose finished item
  * reaches every goal, every step within Planner.maxStepCost. If the budget can't be met, goals are dropped from the
- * low-priority end, as before. Ties: lower total, then lower prior work on the item, then fewer candidates used, then the smaller
- * biggest step.</li>
+ * low-priority end, as before. Ties: lower total, then fewer XP points (Planner.xpPoints), then lower prior work on the item, then
+ * fewer candidates used, then the smaller biggest step.</li>
  * </ol>
  * More than Planner.EXACT_LIMIT inputs can't all be checked in reasonable time: then only the cleanest candidate per goal (or the
  * merge chain it needs) is planned, and the result is marked approximate.
@@ -219,10 +219,13 @@ public final class Selector {
 		return new Result(new Planner.Plan(plan.steps(), plan.total(), true, List.of()), used, kept, dropped, conflicts, true);
 	}
 
-	/** Lower total, then lower prior work, then fewer candidates used, then the smaller biggest step. */
+	/** Lower total, then fewer XP points (as enchantmenttable.com ranks), then lower prior work, fewer candidates used, smaller biggest step. */
 	private static boolean better(Planner.Node a, int aMask, Planner.Node b, int bMask) {
 		if (a.total() != b.total()) {
 			return a.total() < b.total();
+		}
+		if (a.xp() != b.xp()) {
+			return a.xp() < b.xp();
 		}
 		if (a.piece().repairCost() != b.piece().repairCost()) {
 			return a.piece().repairCost() < b.piece().repairCost();
