@@ -35,18 +35,40 @@ public final class Planner {
 	/** One wanted enchantment and the book that provides it. */
 	public record Want(String enchantId, Piece book, String label) {}
 
-	/** @param maxStep the most expensive single step in this subtree */
-	record Node(Piece piece, int total, int maxStep, Node left, Node right, int stepCost, String label, boolean hasTarget) {}
+	/**
+	 * @param xp      XP points the subtree's steps cost if each is paid from level 0 ({@link #xpPoints}), summed
+	 * @param maxStep the most expensive single step in this subtree
+	 */
+	record Node(Piece piece, int total, int xp, int maxStep, Node left, Node right, int stepCost, String label, boolean hasTarget) {}
 
-	/** Within one subset and one resulting piece: lower total, then smaller biggest step. Exact, since both only grow upward. */
-	private static boolean cheaper(Node a, Node b) {
-		return a.total != b.total ? a.total < b.total : a.maxStep < b.maxStep;
+	/**
+	 * Experience points needed to go from level 0 to {@code levels}: the sum of Player#getXpNeededForNextLevel (26.2) over those levels.
+	 * Ties in total levels are broken by these, as enchantmenttable.com's calculator does: of two orders with the same levels, the
+	 * one with smaller steps costs less experience to earn (30 levels at once cost far more than three times 10).
+	 */
+	public static int xpPoints(int levels) {
+		int points = 0;
+		for (int level = 0; level < levels; level++) {
+			points += level >= 30 ? 112 + (level - 30) * 9 : level >= 15 ? 37 + (level - 15) * 5 : 7 + level * 2;
+		}
+		return points;
 	}
 
-	/** Final choice: lower total, then lower prior work on the finished item, then smaller biggest step. */
+	/** Within one subset and one resulting piece: lower total, then fewer XP points, then smaller biggest step. Exact, since all add up. */
+	private static boolean cheaper(Node a, Node b) {
+		if (a.total != b.total) {
+			return a.total < b.total;
+		}
+		return a.xp != b.xp ? a.xp < b.xp : a.maxStep < b.maxStep;
+	}
+
+	/** Final choice: lower total, then fewer XP points, then lower prior work on the finished item, then smaller biggest step. */
 	static int finalOrder(Node a, Node b) {
 		if (a.total != b.total) {
 			return Integer.compare(a.total, b.total);
+		}
+		if (a.xp != b.xp) {
+			return Integer.compare(a.xp, b.xp);
 		}
 		if (a.piece.repairCost() != b.piece.repairCost()) {
 			return Integer.compare(a.piece.repairCost(), b.piece.repairCost());
@@ -156,7 +178,7 @@ public final class Planner {
 		}
 		for (int i = 0; i < n; i++) {
 			Piece p = inputs.get(i);
-			best.get(1 << i).put(new Key(p.repairCost(), p.enchants()), new Node(p, 0, 0, null, null, 0, labels.get(i), i == 0));
+			best.get(1 << i).put(new Key(p.repairCost(), p.enchants()), new Node(p, 0, 0, 0, null, null, 0, labels.get(i), i == 0));
 		}
 		// Submasks are numerically smaller than their mask, so increasing order visits parts before wholes.
 		// Two subtrees with the same inputs and the same resulting piece behave identically from here on,
@@ -190,8 +212,9 @@ public final class Planner {
 	}
 
 	/**
-	 * Drops subtrees that can never win: same inputs and enchantments as another, but higher prior work with at least its total
-	 * and biggest step. Higher prior work only raises every later price and the final penalty, so the other one is never worse.
+	 * Drops subtrees that can never win: same inputs and enchantments as another, but higher prior work with at least its total,
+	 * XP points and biggest step. Higher prior work only raises every later price and the final penalty, so the other one is never
+	 * worse.
 	 */
 	private static void prune(Map<Key, Node> nodes) {
 		if (nodes.size() < 2) {
@@ -200,7 +223,7 @@ public final class Planner {
 		List<Node> list = new ArrayList<>(nodes.values());
 		for (Node a : list) {
 			for (Node b : list) {
-				if (a != b && b.piece.repairCost() > a.piece.repairCost() && b.total >= a.total && b.maxStep >= a.maxStep
+				if (a != b && b.piece.repairCost() > a.piece.repairCost() && b.total >= a.total && b.xp >= a.xp && b.maxStep >= a.maxStep
 						&& b.piece.enchants().equals(a.piece.enchants())) {
 					nodes.remove(new Key(b.piece.repairCost(), b.piece.enchants()));
 				}
@@ -212,7 +235,7 @@ public final class Planner {
 		List<Node> pool = new ArrayList<>();
 		for (int i = 0; i < inputs.size(); i++) {
 			Piece p = inputs.get(i);
-			pool.add(new Node(p, 0, 0, null, null, 0, labels.get(i), i == 0));
+			pool.add(new Node(p, 0, 0, 0, null, null, 0, labels.get(i), i == 0));
 		}
 		while (pool.size() > 1) {
 			Node pick = null;
@@ -267,7 +290,8 @@ public final class Planner {
 		if (!res.valid() || res.cost() > budget) {
 			return null;
 		}
-		return new Node(res.result(), l.total + r.total + res.cost(), Math.max(res.cost(), Math.max(l.maxStep, r.maxStep)), l, r,
+		return new Node(res.result(), l.total + r.total + res.cost(), l.xp + r.xp + xpPoints(res.cost()),
+				Math.max(res.cost(), Math.max(l.maxStep, r.maxStep)), l, r,
 				res.cost(), null, l.hasTarget || r.hasTarget);
 	}
 
